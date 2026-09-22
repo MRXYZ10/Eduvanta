@@ -1,0 +1,27 @@
+# ── Database ────────────────────────────────────────────────────────────
+DATABASE_URL="postgresql://user:password@localhost:5432/eduvanta"
+
+# ── Auth (Supabase) ─────────────────────────────────────────────────────
+NEXT_PUBLIC_SUPABASE_URL="https://ezjwmucioyvwuwmwfyrz.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="sb_publishable_MSg1xf9Rz3MKGVKd4AFoxA_fw4qWSUi"
+SUPABASE_SERVICE_ROLE_KEY=""
+AUTH_SECRET="12345678913565656"
+
+# ── AI Provider ─────────────────────────────────────────────────────────
+# Which provider to use: "anthropic" | "openai" | "gemini"
+AI_PROVIDER="anthropic"
+
+ANTHROPIC_API_KEY=""
+OPENAI_API_KEY=""
+GEMINI_API_KEY=""
+
+# If none of the above keys are set, the app falls back to a mock AI
+# provider in development (NODE_ENV=development) and throws loudly in
+# production so a missing key is never silently mocked.
+#
+# RAG embeddings specifically require OPENAI_API_KEY regardless of
+# AI_PROVIDER above — Anthropic and this app's Gemini provider don't
+# implement embeddings, so uploaded course material won't be searchables
+# without an OpenAI key even if you're using Anthropic for chat.
+
+NODE_ENV="development"

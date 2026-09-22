@@ -1,0 +1,222 @@
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { prisma } from "@/db/client";
+import { getCurrentUser } from "@/lib/auth";
+import { streamWithRetry } from "@/services/ai/factory";
+import { AiProviderError } from "@/services/ai/types";
+import { buildStudentLearningContext, formatContextForPrompt } from "@/services/ai/buildStudentLearningContext";
+import { retrieveRelevantChunks, formatRetrievedMaterial } from "@/services/rag/retrieveRelevantChunks";
+import { enforceRateLimit } from "@/services/security/enforceRateLimit";
+
+const RequestSchema = z.object({
+  conversationId: z.string().optional(),
+  message: z.string().min(1).max(4000),
+  currentTopicId: z.string().optional(),
+});
+
+const NOVA_SYSTEM_PROMPT = `You are Nova, the AI tutor inside EduVanta AI.
+
+You are not a generic chatbot â€” you understand this specific student's
+learning state and act on it. Use the STUDENT CONTEXT block below to tailor
+every response: reference their actual mastery levels and recurring
+mistakes when relevant, don't give generic advice a context-free chatbot
+would give.
+
+You can: explain concepts simply, teach with examples, quiz the student,
+generate practice, explain why an answer was wrong, build a study plan,
+and drive mistake revision. Keep explanations concrete and check
+understanding rather than lecturing at length.
+
+If a REFERENCE MATERIAL block is provided below, prefer it over general
+knowledge when it's actually relevant to the question, and cite it by
+file name when you use it. Never invent a citation, page number, or quote
+that isn't in the material shown to you â€” if nothing relevant was
+retrieved, just answer from general knowledge without pretending to cite
+a source.`;
+
+export async function POST(req: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const limited = enforceRateLimit(user.id, "aiChat");
+  if (limited) return limited;
+
+  const parsed = RequestSchema.safeParse(await req.json());
+
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Invalid request", issues: parsed.error.issues },
+      { status: 400 },
+    );
+  }
+
+  const { conversationId, message, currentTopicId } = parsed.data;
+
+  let conversation = conversationId
+    ? await prisma.conversation.findFirst({
+        where: {
+          id: conversationId,
+          userId: user.id,
+        },
+      })
+    : null;
+
+  if (conversationId && !conversation) {
+    return NextResponse.json(
+      { error: "Conversation not found" },
+      { status: 404 },
+    );
+  }
+
+  if (!conversation) {
+    conversation = await prisma.conversation.create({
+      data: { userId: user.id },
+    });
+  }
+
+  await prisma.message.create({
+    data: {
+      conversationId: conversation.id,
+      role: "user",
+      content: message,
+    },
+  });
+
+  const history = await prisma.message.findMany({
+    where: { conversationId: conversation.id },
+    orderBy: { createdAt: "asc" },
+    take: 20,
+  });
+
+  const contextStart = Date.now();
+  const context = await buildStudentLearningContext(user.id, {
+    currentTopicId,
+  });
+  console.log("[NOVA PERF] student context:", Date.now() - contextStart, "ms");
+
+  const contextBlock = formatContextForPrompt(context);
+
+  let materialBlock: string | null = null;
+
+  if (currentTopicId) {
+    try {
+      const ragStart = Date.now();
+      const chunks = await retrieveRelevantChunks(message, {
+        topicId: currentTopicId,
+      });
+      materialBlock = formatRetrievedMaterial(chunks);
+      console.log("[NOVA PERF] RAG:", Date.now() - ragStart, "ms");
+    } catch {
+      materialBlock = null;
+    }
+  }
+
+  const systemPrompt = [
+    NOVA_SYSTEM_PROMPT,
+    `STUDENT CONTEXT:\n${contextBlock}`,
+    materialBlock,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  const aiRequest = {
+    tier: "standard" as const,
+    messages: [
+      { role: "system" as const, content: systemPrompt },
+      ...history.map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      })),
+    ],
+  };
+
+  const encoder = new TextEncoder();
+
+  let fullResponse = "";
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        const metadata = JSON.stringify({
+          type: "start",
+          conversationId: conversation.id,
+        });
+
+        controller.enqueue(
+          encoder.encode(`data: ${metadata}\n\n`),
+        );
+
+        const aiStart = Date.now();
+        let firstChunkAt: number | null = null;
+
+        for await (const chunk of streamWithRetry(aiRequest)) {
+          if (firstChunkAt === null) {
+            firstChunkAt = Date.now();
+            console.log("[NOVA PERF] first Gemini chunk:", firstChunkAt - aiStart, "ms");
+          }
+          fullResponse += chunk;
+
+          const payload = JSON.stringify({
+            type: "chunk",
+            content: chunk,
+          });
+
+          controller.enqueue(
+            encoder.encode(`data: ${payload}\n\n`),
+          );
+        }
+
+        console.log("[NOVA PERF] total Gemini stream:", Date.now() - aiStart, "ms");
+
+        const saved = await prisma.message.create({
+          data: {
+            conversationId: conversation.id,
+            role: "assistant",
+            content: fullResponse,
+          },
+        });
+
+        const donePayload = JSON.stringify({
+          type: "done",
+          message: {
+            id: saved.id,
+            role: "assistant",
+            content: fullResponse,
+          },
+        });
+
+        controller.enqueue(
+          encoder.encode(`data: ${donePayload}\n\n`),
+        );
+
+        controller.close();
+      } catch (err) {
+        const retryable =
+          err instanceof AiProviderError ? err.retryable : true;
+
+        const errorPayload = JSON.stringify({
+          type: "error",
+          error: "Nova couldn't connect right now.",
+          retryable,
+        });
+
+        controller.enqueue(
+          encoder.encode(`data: ${errorPayload}\n\n`),
+        );
+
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
+    },
+  });
+}

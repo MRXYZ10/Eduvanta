@@ -1,0 +1,124 @@
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { prisma } from "@/db/client";
+import { getCurrentUser } from "@/lib/auth";
+import { completeWithRetry } from "@/services/ai/factory";
+import { AiProviderError } from "@/services/ai/types";
+import { buildStudentLearningContext, formatContextForPrompt } from "@/services/ai/buildStudentLearningContext";
+import { retrieveRelevantChunks, formatRetrievedMaterial } from "@/services/rag/retrieveRelevantChunks";
+import { enforceRateLimit } from "@/services/security/enforceRateLimit";
+
+const RequestSchema = z.object({
+  conversationId: z.string().optional(),
+  message: z.string().min(1).max(4000),
+  currentTopicId: z.string().optional(),
+});
+
+const NOVA_SYSTEM_PROMPT = `You are Nova, the AI tutor inside EduVanta AI.
+
+You are not a generic chatbot — you understand this specific student's
+learning state and act on it. Use the STUDENT CONTEXT block below to tailor
+every response: reference their actual mastery levels and recurring
+mistakes when relevant, don't give generic advice a context-free chatbot
+would give.
+
+You can: explain concepts simply, teach with examples, quiz the student,
+generate practice, explain why an answer was wrong, build a study plan,
+and drive mistake revision. Keep explanations concrete and check
+understanding rather than lecturing at length.
+
+If a REFERENCE MATERIAL block is provided below, prefer it over general
+knowledge when it's actually relevant to the question, and cite it by
+file name when you use it. Never invent a citation, page number, or quote
+that isn't in the material shown to you — if nothing relevant was
+retrieved, just answer from general knowledge without pretending to cite
+a source.`;
+
+export async function POST(req: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const limited = enforceRateLimit(user.id, "aiChat");
+  if (limited) return limited;
+
+  const parsed = RequestSchema.safeParse(await req.json());
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid request", issues: parsed.error.issues }, { status: 400 });
+  }
+  const { conversationId, message, currentTopicId } = parsed.data;
+
+  // Authorization: a conversation, if provided, must belong to this user.
+  let conversation = conversationId
+    ? await prisma.conversation.findFirst({ where: { id: conversationId, userId: user.id } })
+    : null;
+  if (conversationId && !conversation) {
+    return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
+  }
+  if (!conversation) {
+    conversation = await prisma.conversation.create({ data: { userId: user.id } });
+  }
+
+  // Persist the user's message immediately so it's never lost even if the
+  // AI call below fails (see "AI FAILURE HANDLING" > "preserve user's message").
+  await prisma.message.create({
+    data: { conversationId: conversation.id, role: "user", content: message },
+  });
+
+  const history = await prisma.message.findMany({
+    where: { conversationId: conversation.id },
+    orderBy: { createdAt: "asc" },
+    take: 20, // conversation window cap — see AI cost control notes
+  });
+
+  const context = await buildStudentLearningContext(user.id, { currentTopicId });
+  const contextBlock = formatContextForPrompt(context);
+
+  // RAG: only attempt retrieval when there's a topic to scope it to and an
+  // embedding provider is actually configured — a failed/empty retrieval
+  // should never block the conversation, so failures here just mean Nova
+  // answers from general knowledge instead of uploaded material.
+  let materialBlock: string | null = null;
+  if (currentTopicId) {
+    try {
+      const chunks = await retrieveRelevantChunks(message, { topicId: currentTopicId });
+      materialBlock = formatRetrievedMaterial(chunks);
+    } catch {
+      materialBlock = null;
+    }
+  }
+
+  const systemPrompt = [NOVA_SYSTEM_PROMPT, `STUDENT CONTEXT:\n${contextBlock}`, materialBlock]
+    .filter(Boolean)
+    .join("\n\n");
+
+  try {
+    const response = await completeWithRetry({
+      tier: "standard",
+      messages: [
+        { role: "system", content: systemPrompt },
+        ...history.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+      ],
+    });
+
+    const saved = await prisma.message.create({
+      data: { conversationId: conversation.id, role: "assistant", content: response.content },
+    });
+
+    return NextResponse.json({
+      conversationId: conversation.id,
+      message: { id: saved.id, role: "assistant", content: response.content },
+    });
+  } catch (err) {
+    // Friendly, non-crashing failure — the user's message is already saved
+    // above, so retry doesn't duplicate it.
+    const retryable = err instanceof AiProviderError ? err.retryable : true;
+    return NextResponse.json(
+      {
+        error: "Nova couldn't connect right now.",
+        retryable,
+        conversationId: conversation.id,
+      },
+      { status: 502 },
+    );
+  }
+}
