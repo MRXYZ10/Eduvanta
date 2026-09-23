@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useRef, useEffect } from "react";
 import {
@@ -14,7 +14,9 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
+import remarkGfm from "remark-gfm";
 import rehypeKatex from "rehype-katex";
+import { normalizeTutorMarkdown } from "./normalizeTutorMarkdown";
 
 interface ChatMessage {
   id: string;
@@ -406,10 +408,10 @@ export function TutorChat({ currentTopicId }: { currentTopicId?: string }) {
                   <div>
                     <div className="prose prose-sm max-w-none leading-6 prose-p:my-2 prose-headings:mb-2 prose-headings:mt-5 prose-headings:font-semibold prose-pre:overflow-x-auto prose-code:rounded-md prose-code:bg-ink/5 prose-code:px-1 prose-code:py-0.5">
                       <ReactMarkdown
-                        remarkPlugins={[remarkMath]}
+                        remarkPlugins={[remarkGfm, remarkMath]}
                         rehypePlugins={[rehypeKatex]}
                       >
-                        {m.content}
+                        {normalizeTutorMarkdown(m.content)}
                       </ReactMarkdown>
                     </div>
 
