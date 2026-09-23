@@ -22,7 +22,7 @@ export default async function DashboardPage() {
   if (!user.profile?.onboardedAt) redirect("/onboarding");
 
   const data = await getDashboardData(user.id);
-  await checkStudyReminder(user.id); // reactive, dedup'd Ã¢â‚¬â€ see checkStudyReminder.ts
+  await checkStudyReminder(user.id); // reactive, deduped
 
   return (
     <AppShell>
@@ -74,7 +74,7 @@ export default async function DashboardPage() {
               href="/planner"
               className="shrink-0 rounded-full border border-line/70 bg-paper/60 px-3 py-1.5 text-xs font-medium text-cobalt transition-all duration-200 hover:-translate-y-0.5 hover:bg-cobalt-soft hover:shadow-sm"
             >
-              View study plan →
+              View study plan -&gt;
             </a>
           </div>
 
@@ -92,7 +92,7 @@ export default async function DashboardPage() {
 
         <section>
           <a href="/mistakes" className="text-sm text-cobalt underline underline-offset-2">
-            Review your Mistake Vault Ã¢â€ â€™
+            Review your Mistake Vault -&gt;
           </a>
         </section>
       </div>

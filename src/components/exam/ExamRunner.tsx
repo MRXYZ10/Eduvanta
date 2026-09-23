@@ -64,7 +64,7 @@ export function ExamRunner({ examId }: { examId: string }) {
       if (!res.ok) throw new Error("Couldn't submit the exam.");
       router.push(`/exam/result/${examAttemptId}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't submit ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â your answers are saved, try submitting again.");
+      setError(err instanceof Error ? err.message : "Couldn't submit - your answers are saved, try submitting again.");
       submittedRef.current = false;
       setSubmitting(false);
     }
@@ -103,7 +103,7 @@ export function ExamRunner({ examId }: { examId: string }) {
         }),
       });
     } catch {
-      // Auto-save failing silently is acceptable here ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â the answer stays in
+      // Auto-save failing silently is acceptable here ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â the answer stays in
       // local state and the next navigation/save attempt will retry it;
       // submit still uses whatever made it to the server.
     }
@@ -126,7 +126,7 @@ export function ExamRunner({ examId }: { examId: string }) {
     return <div className="p-6 text-center text-sm text-mastery-attention">{error}</div>;
   }
   if (questions.length === 0) {
-    return <div className="p-10 text-center text-sm text-ink/40">Loading examÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦</div>;
+    return <div className="p-10 text-center text-sm text-ink/40">Loading exam...</div>;
   }
 
   const q = questions[current];
@@ -227,7 +227,7 @@ export function ExamRunner({ examId }: { examId: string }) {
             Keep working
           </Button>
           <Button onClick={submit} disabled={submitting}>
-            {submitting ? "SubmittingÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦" : "Submit"}
+            {submitting ? "Submitting..." : "Submit"}
           </Button>
         </div>
       </Modal>
