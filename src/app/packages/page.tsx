@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import Link from "next/link";
+import { Check, Sparkles, X } from "lucide-react";
 
 type Plan = "STUDENT" | "PRO";
 
@@ -47,7 +48,9 @@ export default function PackagesPage() {
 
   const upiPaymentUrl =
     upiId && selectedPlanData
-      ? `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent("EduVanta")}&am=${selectedPlanData.price}&cu=INR`
+      ? `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(
+          "EduVanta",
+        )}&am=${selectedPlanData.price}&cu=INR`
       : "";
 
   async function submitPayment() {
@@ -76,7 +79,7 @@ export default function PackagesPage() {
       }
 
       setMessage(
-        "Payment submitted successfully. Your plan will be activated after verification."
+        "Payment submitted successfully. Your plan will be activated after verification.",
       );
       setTransactionId("");
     } catch {
@@ -87,50 +90,67 @@ export default function PackagesPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f7f9fc] px-4 py-10 text-[#172033] sm:px-6 lg:px-10">
+    <main className="min-h-dvh bg-paper px-4 py-8 text-ink sm:px-6 lg:px-10 lg:py-12">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-10 text-center">
+        <div className="mb-10">
           <Link
             href="/dashboard"
-            className="mb-5 inline-block text-sm font-medium text-[#5267d9] hover:underline"
+            className="mb-5 inline-flex items-center rounded-full border border-line/70 bg-paper/70 px-3 py-1.5 text-xs font-medium text-cobalt transition-colors hover:bg-cobalt-soft"
           >
-            Back to Dashboard
+            ← Back to Dashboard
           </Link>
 
-          <div className="mb-3 inline-flex rounded-full bg-[#5267d9]/10 px-4 py-1.5 text-xs font-semibold text-[#5267d9]">
-            EDUVANTA PLANS
+          <div className="rounded-3xl border border-line/70 bg-paper/60 p-6 shadow-sm sm:p-8">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-signal/25 bg-signal-soft px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-signal">
+              <Sparkles className="h-3 w-3" strokeWidth={2} />
+              EduVanta plans
+            </div>
+
+            <h1 className="text-3xl tracking-tight sm:text-5xl">
+              Upgrade your learning
+            </h1>
+
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-ink/60 sm:text-base">
+              Choose a plan and unlock more powerful AI learning tools.
+            </p>
           </div>
-
-          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-            Upgrade your learning
-          </h1>
-
-          <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-[#667085] sm:text-base">
-            Choose a plan and unlock more powerful AI learning tools.
-          </p>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-3">
-          <div className="flex flex-col rounded-3xl border border-[#e4e7ec] bg-white p-7 shadow-sm">
-            <h2 className="text-xl font-bold">Free</h2>
-            <p className="mt-2 text-sm text-[#667085]">
+        <div className="grid gap-5 md:grid-cols-3">
+          <div className="flex flex-col rounded-3xl border border-line/70 bg-paper/60 p-6 shadow-sm sm:p-7">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink/40">
+              Starter
+            </div>
+
+            <h2 className="mt-2 text-xl font-medium">Free</h2>
+
+            <p className="mt-2 text-sm leading-6 text-ink/55">
               Get started with essential learning tools.
             </p>
 
-            <div className="mt-6 text-4xl font-bold">&#8377;0</div>
+            <div className="mt-6 text-4xl font-serif tracking-tight">
+              ₹0
+            </div>
 
-            <div className="my-7 h-px bg-[#eef0f4]" />
+            <div className="my-6 h-px bg-line/60" />
 
-            <ul className="space-y-4 text-sm text-[#475467]">
-              <li>&#10003; Basic AI tutoring</li>
-              <li>&#10003; Limited daily questions</li>
-              <li>&#10003; Basic practice</li>
-              <li>&#10003; Study progress tracking</li>
+            <ul className="space-y-3 text-sm text-ink/65">
+              {[
+                "Basic AI tutoring",
+                "Limited daily questions",
+                "Basic practice",
+                "Study progress tracking",
+              ].map((feature) => (
+                <li key={feature} className="flex gap-2">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-mastery-mastered" />
+                  <span>{feature}</span>
+                </li>
+              ))}
             </ul>
 
             <button
               disabled
-              className="mt-8 w-full cursor-not-allowed rounded-xl bg-[#f2f4f7] px-5 py-3 text-sm font-semibold text-[#98a2b3]"
+              className="mt-8 w-full rounded-xl border border-line/60 bg-ink/5 px-5 py-3 text-sm font-medium text-ink/35"
             >
               Current Plan
             </button>
@@ -139,30 +159,43 @@ export default function PackagesPage() {
           {plans.map((plan) => (
             <div
               key={plan.id}
-              className="relative flex flex-col rounded-3xl border border-[#5267d9] bg-white p-7 shadow-sm ring-2 ring-[#5267d9]/10 transition hover:-translate-y-1 hover:shadow-xl"
+              className={`relative flex flex-col rounded-3xl border p-6 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg sm:p-7 ${
+                plan.id === "STUDENT"
+                  ? "border-cobalt/40 bg-cobalt-soft/25"
+                  : "border-line/70 bg-paper/60"
+              }`}
             >
               {plan.id === "STUDENT" && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#5267d9] px-4 py-1 text-xs font-bold text-white">
-                  MOST POPULAR
+                <div className="absolute -top-3 left-6 rounded-full bg-cobalt px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-white">
+                  Popular
                 </div>
               )}
 
-              <h2 className="text-xl font-bold">{plan.name}</h2>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink/40">
+                Premium
+              </div>
 
-              <p className="mt-2 min-h-12 text-sm leading-5 text-[#667085]">
+              <h2 className="mt-2 text-xl font-medium">{plan.name}</h2>
+
+              <p className="mt-2 min-h-12 text-sm leading-6 text-ink/55">
                 {plan.description}
               </p>
 
               <div className="mt-6">
-                <span className="text-4xl font-bold">&#8377;{plan.price}</span>
-                <span className="ml-1 text-sm text-[#667085]">/month</span>
+                <span className="text-4xl font-serif tracking-tight">
+                  ₹{plan.price}
+                </span>
+                <span className="ml-1 text-sm text-ink/45">/month</span>
               </div>
 
-              <div className="my-7 h-px bg-[#eef0f4]" />
+              <div className="my-6 h-px bg-line/60" />
 
-              <ul className="space-y-4 text-sm text-[#475467]">
+              <ul className="space-y-3 text-sm text-ink/65">
                 {plan.features.map((feature) => (
-                  <li key={feature}>&#10003; {feature}</li>
+                  <li key={feature} className="flex gap-2">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-cobalt" />
+                    <span>{feature}</span>
+                  </li>
                 ))}
               </ul>
 
@@ -172,54 +205,64 @@ export default function PackagesPage() {
                   setSelectedPlan(plan.id);
                   setMessage("");
                 }}
-                className="mt-8 w-full rounded-xl bg-[#5267d9] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4356c7]"
+                className="mt-8 w-full rounded-xl bg-cobalt px-5 py-3 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-cobalt/95 hover:shadow-md"
               >
-                Pay &#8377;{plan.price} via UPI
+                Pay ₹{plan.price} via UPI
               </button>
             </div>
           ))}
         </div>
 
         {selectedPlan && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-            <div className="w-full max-w-md rounded-3xl bg-white p-7 shadow-2xl">
-              <div className="flex items-start justify-between">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-sm">
+            <div className="max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-3xl border border-line/70 bg-paper p-6 shadow-2xl sm:p-7">
+              <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h2 className="text-xl font-bold">Pay via UPI</h2>
-                  <p className="mt-1 text-sm text-[#667085]">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-signal">
+                    UPI payment
+                  </div>
+
+                  <h2 className="mt-1 text-xl font-medium">
+                    Complete your payment
+                  </h2>
+
+                  <p className="mt-1 text-sm text-ink/55">
                     Complete the payment and enter your transaction ID.
                   </p>
                 </div>
 
                 <button
                   type="button"
+                  aria-label="Close payment dialog"
                   onClick={() => {
                     setSelectedPlan(null);
                     setMessage("");
                   }}
-                  className="text-xl text-[#98a2b3] hover:text-[#172033]"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-ink/40 transition-colors hover:bg-ink/5 hover:text-ink"
                 >
-                  X
+                  <X className="h-5 w-5" strokeWidth={1.8} />
                 </button>
               </div>
 
-              <div className="mt-6 rounded-2xl bg-[#f7f9fc] p-5 text-center">
-                <p className="text-xs font-semibold uppercase tracking-wide text-[#667085]">
+              <div className="mt-6 rounded-2xl border border-line/60 bg-ink/5 p-5 text-center">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink/40">
                   Amount to pay
                 </p>
 
-                <p className="mt-1 text-3xl font-bold">
-                  &#8377;{plans.find((p) => p.id === selectedPlan)?.price}
+                <p className="mt-1 text-3xl font-serif">
+                  ₹{selectedPlanData?.price}
                 </p>
 
-                <div className="mt-4 rounded-xl border border-dashed border-[#d0d5dd] bg-white p-4">
-                  <p className="text-sm font-semibold">UPI payment</p>
-                  <p className="mt-1 text-xs text-[#667085]">
-                    UPI ID: {process.env.NEXT_PUBLIC_EDUVANTA_UPI_ID}
+                <div className="mt-5 rounded-2xl border border-line/60 bg-paper p-4">
+                  <p className="text-sm font-medium">UPI payment</p>
+
+                  <p className="mt-1 break-all text-xs text-ink/50">
+                    UPI ID: {upiId}
                   </p>
+
                   {upiPaymentUrl && (
                     <div className="mt-4 flex flex-col items-center">
-                      <div className="rounded-2xl border border-[#e4e7ec] bg-white p-3 shadow-sm">
+                      <div className="rounded-2xl border border-line/70 bg-white p-3 shadow-sm">
                         <QRCodeSVG
                           value={upiPaymentUrl}
                           size={180}
@@ -228,31 +271,33 @@ export default function PackagesPage() {
                           fgColor="#111827"
                         />
                       </div>
-                      <p className="mt-2 text-xs font-medium text-[#667085]">
+
+                      <p className="mt-2 text-xs text-ink/45">
                         Scan this QR with any UPI app
                       </p>
                     </div>
                   )}
 
-                  <p className="mt-3 text-xs font-medium text-[#5267d9]">
+                  <p className="mt-4 text-xs font-medium text-cobalt">
                     Payment instructions
                   </p>
                 </div>
               </div>
 
-              <label className="mt-6 block text-sm font-semibold">
+              <label className="mt-6 block text-sm font-medium">
                 UPI Transaction ID
+
                 <input
                   value={transactionId}
                   onChange={(e) => setTransactionId(e.target.value)}
                   placeholder="Enter your transaction ID"
                   maxLength={100}
-                  className="mt-2 w-full rounded-xl border border-[#d0d5dd] px-4 py-3 text-sm outline-none transition focus:border-[#5267d9] focus:ring-2 focus:ring-[#5267d9]/10"
+                  className="mt-2 w-full rounded-xl border border-line/70 bg-paper px-4 py-3 text-sm text-ink outline-none transition focus:border-cobalt focus:ring-2 focus:ring-cobalt/10"
                 />
               </label>
 
               {message && (
-                <div className="mt-4 rounded-xl bg-[#f0fdf4] p-3 text-sm text-[#15803d]">
+                <div className="mt-4 rounded-xl border border-mastery-mastered/20 bg-mastery-mastered/10 p-3 text-sm leading-5 text-mastery-mastered">
                   {message}
                 </div>
               )}
@@ -261,12 +306,12 @@ export default function PackagesPage() {
                 type="button"
                 disabled={!transactionId.trim() || submitting}
                 onClick={submitPayment}
-                className="mt-5 w-full rounded-xl bg-[#5267d9] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4356c7] disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-5 w-full rounded-xl bg-cobalt px-5 py-3 text-sm font-medium text-white transition-all duration-200 hover:bg-cobalt/95 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {submitting ? "Submitting..." : "Submit for Verification"}
               </button>
 
-              <p className="mt-4 text-center text-[11px] leading-5 text-[#98a2b3]">
+              <p className="mt-4 text-center text-[11px] leading-5 text-ink/35">
                 Your plan will be activated after the payment is verified by
                 EduVanta.
               </p>
@@ -277,4 +322,3 @@ export default function PackagesPage() {
     </main>
   );
 }
-

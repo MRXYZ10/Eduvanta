@@ -1,5 +1,12 @@
-﻿import Link from "next/link";
-import { Home, BookOpen, Target, Sparkles, User, Gem } from "lucide-react";
+import Link from "next/link";
+import {
+  Home,
+  BookOpen,
+  Target,
+  Sparkles,
+  User,
+  Gem,
+} from "lucide-react";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { SearchBar } from "@/components/search/SearchBar";
@@ -16,52 +23,84 @@ const NAV = [
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-dvh md:flex">
+    <div className="min-h-dvh bg-paper md:flex">
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex md:w-56 md:flex-col md:border-r md:border-line md:px-4 md:py-6">
-        <div className="mb-8 px-2 font-serif text-lg">EduVanta</div>
+      <aside className="hidden border-r border-line/70 bg-paper/80 md:flex md:w-60 md:flex-col md:px-3 md:py-5">
+        <div className="mb-7 px-3">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cobalt text-sm font-semibold text-white shadow-sm">
+              E
+            </div>
+            <div>
+              <div className="font-serif text-lg leading-none text-ink">
+                EduVanta
+              </div>
+              <div className="mt-1 text-[10px] font-medium uppercase tracking-[0.1em] text-ink/40">
+                Your learning space
+              </div>
+            </div>
+          </div>
+        </div>
+
         <nav className="flex flex-1 flex-col gap-1">
           {NAV.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
               href={href}
-              className="flex items-center gap-3 rounded-md px-2 py-2 text-sm text-ink/80 hover:bg-ink/5"
+              className="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-ink/70 transition-all duration-200 hover:bg-cobalt-soft hover:text-cobalt"
             >
-              <Icon className="h-4 w-4" strokeWidth={1.75} />
-              {label}
+              <Icon
+                className="h-[18px] w-[18px] shrink-0 transition-transform duration-200 group-hover:scale-105"
+                strokeWidth={1.75}
+              />
+              <span>{label}</span>
             </Link>
           ))}
         </nav>
-        <LogoutButton />
+
+        <div className="mt-5 border-t border-line/60 pt-4 px-1">
+          <LogoutButton />
+        </div>
       </aside>
 
-      <div className="flex-1 pb-20 md:pb-0">
-        {/* Slim top bar for search + theme + notifications â€” deliberately
-            not additional bottom-nav icons on mobile; all three live
-            here on both breakpoints instead. */}
-        <div className="flex items-center justify-end gap-2 border-b border-line px-4 py-2 md:border-0 md:px-8 md:pt-6">
+      <div className="min-w-0 flex-1 pb-20 md:pb-0">
+        {/* Top bar */}
+        <div className="sticky top-0 z-20 flex items-center justify-end gap-2 border-b border-line/60 bg-paper/85 px-4 py-2.5 backdrop-blur-xl md:border-0 md:bg-transparent md:px-8 md:pt-6">
           <SearchBar />
           <ThemeToggle />
           <NotificationBell />
         </div>
-        <main className="mx-auto max-w-3xl px-4 py-6 md:px-8 md:py-4">{children}</main>
+
+        <main className="mx-auto w-full max-w-4xl px-4 py-6 md:px-8 md:py-6">
+          {children}
+        </main>
       </div>
 
-      {/* Mobile bottom nav â€” chat input etc. always sit above this via pb-20 on main */}
+      {/* Mobile bottom navigation */}
       <nav
-        className="fixed inset-x-0 bottom-0 z-10 flex justify-around border-t border-line bg-paper/95 py-2 backdrop-blur md:hidden"
-        style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-line/70 bg-paper/92 px-1 pt-2 shadow-[0_-8px_30px_rgba(0,0,0,0.04)] backdrop-blur-xl md:hidden"
+        style={{
+          paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))",
+        }}
       >
-        {NAV.map(({ href, label, icon: Icon }) => (
-          <Link key={href} href={href} className="flex flex-col items-center gap-1 px-3 py-1 text-ink/70">
-            <Icon className="h-5 w-5" strokeWidth={1.75} />
-            <span className="text-[11px]">{label}</span>
-          </Link>
-        ))}
+        <div className="mx-auto flex max-w-lg justify-around">
+          {NAV.map(({ href, label, icon: Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              className="group flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl px-1 py-1.5 text-ink/55 transition-colors duration-200 hover:bg-ink/5 hover:text-cobalt"
+            >
+              <Icon
+                className="h-[19px] w-[19px] transition-transform duration-200 group-hover:scale-105"
+                strokeWidth={1.75}
+              />
+              <span className="truncate text-[10px] font-medium">
+                {label}
+              </span>
+            </Link>
+          ))}
+        </div>
       </nav>
     </div>
   );
 }
-
-
-

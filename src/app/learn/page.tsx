@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { ArrowRight, BookOpen } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { getEnrolledCourses } from "@/services/courses/getEnrolledCourses";
 import { AppShell } from "@/components/AppShell";
@@ -14,10 +15,19 @@ export default async function LearnPage() {
 
   return (
     <AppShell>
-      <h1 className="mb-1 text-2xl">Learn</h1>
-      <p className="mb-6 text-sm text-ink/60">
-        Your enrolled courses — set during onboarding based on the subjects you picked.
-      </p>
+      <header className="mb-8">
+        <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cobalt/20 bg-cobalt-soft px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-cobalt">
+          <BookOpen className="h-3 w-3" strokeWidth={2} />
+          Learning hub
+        </div>
+
+        <h1 className="text-3xl sm:text-4xl">Learn</h1>
+
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-ink/60">
+          Your enrolled courses and topics, organized around the subjects you
+          selected.
+        </p>
+      </header>
 
       {courses.length === 0 ? (
         <EmptyState
@@ -27,39 +37,96 @@ export default async function LearnPage() {
       ) : (
         <div className="space-y-8">
           {courses.map((course) => (
-            <div key={course.id}>
-              <h2 className="mb-3 font-serif text-lg">{course.title}</h2>
-              {course.subjects.map((subject) => (
-                <div key={subject.id} className="mb-4">
-                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ink/40">{subject.name}</p>
-                  <div className="divide-y divide-line rounded-lg border border-line">
-                    {subject.topics.map((topic) => (
-                      <Link
-                        key={topic.id}
-                        href={`/practice/${topic.id}`}
-                        className="flex items-center justify-between px-4 py-3 hover:bg-ink/5"
-                      >
-                        <span className="text-sm font-medium">{topic.name}</span>
-                        {topic.mastery ? (
-                          <MasteryBadge band={topic.mastery.band} />
-                        ) : (
-                          <span className="text-xs text-ink/40">Not started</span>
-                        )}
-                      </Link>
-                    ))}
-                    {subject.topics.length === 0 && (
-                      <p className="px-4 py-3 text-sm text-ink/40">No topics yet.</p>
-                    )}
-                  </div>
+            <section
+              key={course.id}
+              className="overflow-hidden rounded-3xl border border-line/70 bg-paper/60 shadow-sm"
+            >
+              <div className="border-b border-line/60 bg-cobalt-soft/35 px-5 py-5 sm:px-6">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-cobalt/70">
+                  Course
                 </div>
-              ))}
-            </div>
+                <h2 className="mt-1 text-xl font-serif tracking-tight">
+                  {course.title}
+                </h2>
+              </div>
+
+              <div className="p-4 sm:p-5">
+                {course.subjects.map((subject) => (
+                  <div key={subject.id} className="mb-6 last:mb-0">
+                    <div className="mb-2.5 flex items-center justify-between gap-3 px-1">
+                      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink/45">
+                        {subject.name}
+                      </p>
+
+                      <span className="text-[10px] text-ink/35">
+                        {subject.topics.length}{" "}
+                        {subject.topics.length === 1 ? "topic" : "topics"}
+                      </span>
+                    </div>
+
+                    <div className="overflow-hidden rounded-2xl border border-line/60 bg-paper/45">
+                      {subject.topics.map((topic) => (
+                        <Link
+                          key={topic.id}
+                          href={`/practice/${topic.id}`}
+                          className="group flex items-center gap-4 border-b border-line/50 px-4 py-4 transition-all duration-200 last:border-b-0 hover:bg-cobalt-soft/35 sm:px-5"
+                        >
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ink/5 text-xs font-semibold text-ink/45 transition-colors duration-200 group-hover:bg-cobalt-soft group-hover:text-cobalt">
+                            →
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm font-medium text-ink">
+                              {topic.name}
+                            </div>
+
+                            <div className="mt-1 text-xs text-ink/40">
+                              {topic.mastery
+                                ? "Continue learning"
+                                : "Start this topic"}
+                            </div>
+                          </div>
+
+                          <div className="flex shrink-0 items-center gap-2">
+                            {topic.mastery ? (
+                              <MasteryBadge band={topic.mastery.band} />
+                            ) : (
+                              <span className="hidden rounded-full border border-line/60 bg-paper px-2.5 py-1 text-[10px] font-medium text-ink/40 sm:inline-flex">
+                                Not started
+                              </span>
+                            )}
+
+                            <ArrowRight
+                              className="h-4 w-4 text-ink/25 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-cobalt"
+                              strokeWidth={1.8}
+                            />
+                          </div>
+                        </Link>
+                      ))}
+
+                      {subject.topics.length === 0 && (
+                        <p className="px-5 py-5 text-sm text-ink/40">
+                          No topics yet.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       )}
 
-      <Link href="/materials" className="mt-6 inline-block text-sm text-cobalt underline underline-offset-2">
-        Manage course material →
+      <Link
+        href="/materials"
+        className="group mt-7 inline-flex items-center gap-1.5 rounded-full border border-line/70 bg-paper/60 px-3.5 py-2 text-xs font-medium text-cobalt transition-all duration-200 hover:-translate-y-0.5 hover:bg-cobalt-soft hover:shadow-sm"
+      >
+        Manage course material
+        <ArrowRight
+          className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5"
+          strokeWidth={1.8}
+        />
       </Link>
     </AppShell>
   );
