@@ -10,11 +10,26 @@ export default async function OnboardingPage() {
   if (user.role === "TEACHER") redirect("/teacher");
   if (user.profile?.onboardedAt) redirect("/dashboard");
 
-  const subjects = await prisma.subject.findMany({ orderBy: { order: "asc" } });
+  const subjects = await prisma.subject.findMany({
+    orderBy: { order: "asc" },
+    include: {
+      course: {
+        select: {
+          examGoal: true,
+        },
+      },
+    },
+  });
 
   return (
     <main className="min-h-dvh bg-paper">
-      <OnboardingWizard subjects={subjects.map((s) => ({ id: s.id, name: s.name }))} />
+      <OnboardingWizard
+        subjects={subjects.map((s) => ({
+          id: s.id,
+          name: s.name,
+          examGoal: s.course.examGoal,
+        }))}
+      />
     </main>
   );
 }

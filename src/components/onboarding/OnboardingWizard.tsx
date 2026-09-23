@@ -8,6 +8,7 @@ import { Sparkles } from "lucide-react";
 interface SubjectOption {
   id: string;
   name: string;
+  examGoal: string | null;
 }
 
 const EXAM_GOALS = ["College", "JEE", "NEET", "School", "Competitive Exam", "Self Learning", "Other"] as const;
@@ -149,7 +150,7 @@ export function OnboardingWizard({ subjects }: { subjects: SubjectOption[] }) {
       {step === 1 && (
         <Step title="Which subjects?" subtitle="Pick as many as you're working on right now.">
           <div className="flex flex-wrap gap-2">
-            {subjects.map((s) => (
+            {subjects.filter((s) => s.examGoal === form.examGoal || form.examGoal === "Other" || form.examGoal === "Self Learning").map((s) => (
               <ChoiceButton key={s.id} selected={form.subjectIds.includes(s.id)} onClick={() => toggleSubject(s.id)} pill>
                 {s.name}
               </ChoiceButton>
@@ -290,3 +291,6 @@ function ChoiceButton({
     </button>
   );
 }
+
+
+

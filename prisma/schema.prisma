@@ -9,6 +9,7 @@ generator client {
 datasource db {
   provider   = "postgresql"
   url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
   extensions = [pgvector(map: "vector")]
 }
 
@@ -594,6 +595,8 @@ model Payment {
   @@index([status])
   @@unique([transactionId])
 }
+
+
 
 
 
