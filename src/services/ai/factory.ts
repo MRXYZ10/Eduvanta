@@ -3,18 +3,18 @@ import { AiProviderError } from "./types";
 import { AnthropicProvider } from "./providers/anthropic";
 import { OpenAiProvider } from "./providers/openai";
 import { GeminiProvider } from "./providers/gemini";
+import { GroqProvider } from "./providers/groq";
 import { MockAiProvider } from "./providers/mock";
 import { logAiCall } from "@/services/observability/logger";
 
 /**
  * This is the ONLY place in the codebase that knows which concrete AI
  * providers exist. Everything else (Nova tutor, question generation,
- * mistake analysis, study planner) imports getAiProvider() and talks to
- * the AiProvider interface only.
+ * mistake analysis, study planner) imports getAiProvider() and talks
+ * to the AiProvider interface only.
  *
- * Provider selection: AI_PROVIDER env var ("anthropic" | "openai" | "gemini").
- * Falls back to MockAiProvider in development if no key is set; throws in
- * production so a missing key is loud, not silently mocked.
+ * Provider selection: AI_PROVIDER env var
+ * ("anthropic" | "openai" | "gemini" | "groq").
  */
 function buildProvider(): AiProvider {
   const selected = process.env.AI_PROVIDER ?? "anthropic";
@@ -24,6 +24,7 @@ function buildProvider(): AiProvider {
       anthropic: process.env.ANTHROPIC_API_KEY,
       openai: process.env.OPENAI_API_KEY,
       gemini: process.env.GEMINI_API_KEY,
+      groq: process.env.GROQ_API_KEY,
     })[name];
 
   const key = keyFor(selected);
@@ -43,6 +44,8 @@ function buildProvider(): AiProvider {
       return new OpenAiProvider(key);
     case "gemini":
       return new GeminiProvider(key);
+    case "groq":
+      return new GroqProvider(key);
     case "anthropic":
     default:
       return new AnthropicProvider(key);
@@ -57,11 +60,8 @@ export function getAiProvider(): AiProvider {
 }
 
 /**
- * Embeddings are resolved independently of the chat provider: Anthropic
- * has no embeddings API, so if AI_PROVIDER=anthropic (the default) but
- * OPENAI_API_KEY is also set, RAG uses OpenAI for embeddings while Nova's
- * conversations still go through Anthropic. This means embeddings require
- * OPENAI_API_KEY specifically, documented in .env.example.
+ * Embeddings are resolved independently of the chat provider.
+ * RAG currently uses OpenAI embeddings.
  */
 let cachedEmbeddingProvider: AiProvider | null = null;
 
@@ -75,8 +75,7 @@ export function getEmbeddingProvider(): AiProvider {
 
   if (process.env.NODE_ENV === "production") {
     throw new Error(
-      "RAG embeddings require OPENAI_API_KEY to be set, even when AI_PROVIDER is anthropic or gemini " +
-        "(Anthropic and this app's Gemini provider don't implement embeddings).",
+      "RAG embeddings require OPENAI_API_KEY to be set, even when AI_PROVIDER is anthropic, gemini, or groq.",
     );
   }
 
@@ -85,16 +84,7 @@ export function getEmbeddingProvider(): AiProvider {
 }
 
 /**
- * Cost control + resilience wrapper (see ARCHITECTURE.md):
- * - retries once on retryable errors
- * - lets callers pick a cheaper "fast" tier for simple tasks
- * - never retries non-retryable errors (bad request, auth failure)
- *
- * This is also the single chokepoint every AI-calling feature in the app
- * passes through (Nova, practice feedback, exam narrative, question
- * generation, planner rationale, mistake mini-lessons) Ã¢â‚¬â€ logging latency
- * and errors here, rather than in each of those callers individually,
- * covers all of them at once. See services/observability/logger.ts.
+ * Cost control + resilience wrapper.
  */
 export async function* streamWithRetry(
   req: AiCompletionRequest,
@@ -136,6 +126,7 @@ export async function* streamWithRetry(
 
   throw lastError;
 }
+
 export async function completeWithRetry(
   req: AiCompletionRequest,
   opts: { retries?: number } = {},
@@ -145,19 +136,25 @@ export async function completeWithRetry(
   const startedAt = Date.now();
 
   let lastError: unknown;
+
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const response = await provider.complete(req);
+
       logAiCall({
         provider: response.provider,
         model: response.model,
         durationMs: Date.now() - startedAt,
         success: true,
       });
+
       return response;
     } catch (err) {
       lastError = err;
-      const retryable = err instanceof AiProviderError ? err.retryable : true;
+
+      const retryable =
+        err instanceof AiProviderError ? err.retryable : true;
+
       if (!retryable || attempt === retries) {
         logAiCall({
           provider: provider.name,
@@ -168,9 +165,10 @@ export async function completeWithRetry(
         });
         break;
       }
+
       await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
     }
   }
+
   throw lastError;
 }
-

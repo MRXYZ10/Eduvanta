@@ -2,12 +2,12 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // Routes that don't require a signed-in session. Everything else redirects
-// to /login if there's no valid session — see PRODUCT SPEC "Protected routes".
+// to /login if there's no valid session â€” see PRODUCT SPEC "Protected routes".
 const PUBLIC_ROUTES = ["/login", "/signup", "/forgot-password", "/reset-password", "/auth/callback"];
 
 // "/" is public (the landing page for logged-out visitors) but is
 // deliberately NOT in PUBLIC_ROUTES above, which is matched via
-// `.startsWith()` — `"/".startsWith("/")` would be true for every path in
+// `.startsWith()` â€” `"/".startsWith("/")` would be true for every path in
 // the app, silently disabling auth gating everywhere. It gets its own
 // exact-match check instead.
 function isPublicPath(pathname: string): boolean {
@@ -16,7 +16,7 @@ function isPublicPath(pathname: string): boolean {
 }
 
 // If Supabase env vars are missing/empty (e.g. fresh clone, .env not filled
-// in yet), createServerClient() throws synchronously — and since this
+// in yet), createServerClient() throws synchronously â€” and since this
 // middleware runs on almost every route, that used to take down EVERY page
 // (including the public landing page) instead of just the parts that
 // actually need auth. We fail open instead: skip the auth check entirely
@@ -35,7 +35,7 @@ export async function middleware(request: NextRequest) {
     if (!warnedMissingEnv) {
       warnedMissingEnv = true;
       console.warn(
-        "[middleware] NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY are not set — " +
+        "[middleware] NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY are not set â€” " +
           "skipping auth checks so the app can still boot. Fill these in your .env file to enable login. " +
           "See .env.example.",
       );
@@ -65,22 +65,22 @@ export async function middleware(request: NextRequest) {
     },
   );
 
-  // getUser() (not getSession()) — this re-validates the token against
+  // getUser() (not getSession()) â€” this re-validates the token against
   // Supabase rather than trusting a possibly-stale local cookie, and this
   // call is also what actually triggers the refreshed cookie to be written
   // via the set() callback above.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const claims = claimsData?.claims;
+  const user = claims?.sub ? claims : null;
 
   const isPublicRoute = isPublicPath(request.nextUrl.pathname);
   const isApiRoute = request.nextUrl.pathname.startsWith("/api");
 
-  // API routes never get redirected to a login *page* — a fetch() call
+  // API routes never get redirected to a login *page* â€” a fetch() call
   // expects JSON back, and a redirect would resolve to login's HTML,
   // breaking every client-side .json() call silently. Each route handler
   // already does its own getCurrentUser() check and returns a proper 401
-  // (see e.g. /api/tutor/chat) — middleware here only needs to keep the
+  // (see e.g. /api/tutor/chat) â€” middleware here only needs to keep the
   // session cookie fresh for them, not gate access.
   if (!user && !isPublicRoute && !isApiRoute) {
     const redirectUrl = new URL("/login", request.url);

@@ -1,4 +1,4 @@
-﻿import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { prisma } from "@/db/client";
 
 /**
@@ -14,26 +14,30 @@ import { prisma } from "@/db/client";
 export async function getCurrentUser() {
   const authStart = Date.now();
   const supabase = createSupabaseServerClient();
-  const {
-    data: { user: supabaseUser },
-  } = await supabase.auth.getUser();
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const claims = claimsData?.claims;
 
-  if (!supabaseUser?.email) return null;
+  const email =
+    typeof claims?.email === "string"
+      ? claims.email
+      : null;
 
-  console.log(`[AUTH PERF] Supabase getUser: ${Date.now() - authStart} ms`);
+  if (!email) return null;
+
+  console.log(`[AUTH PERF] Supabase getClaims: ${Date.now() - authStart} ms`);
 
   let user = await prisma.user.findUnique({
-    where: { email: supabaseUser.email },
+    where: { email },
     include: { profile: true },
   });
 
   if (!user) {
     user = await prisma.user.create({
       data: {
-        email: supabaseUser.email,
+        email,
         role: "STUDENT",
-        emailVerified: supabaseUser.email_confirmed_at
-          ? new Date(supabaseUser.email_confirmed_at)
+        emailVerified: typeof claims?.email_confirmed_at === "string"
+          ? new Date(claims.email_confirmed_at as string)
           : null,
       },
       include: { profile: true },
