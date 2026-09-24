@@ -1,0 +1,11 @@
+{
+  "name": "EduVanta AI",
+  "short_name": "EduVanta",
+  "description": "Your AI-powered learning companion",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "orientation": "portrait",
+  "scope": "/"
+}
