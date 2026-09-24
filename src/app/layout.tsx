@@ -11,6 +11,8 @@ const sans = IBM_Plex_Sans({ subsets: ["latin"], variable: "--font-sans", weight
 export const metadata: Metadata = {
   title: "EduVanta AI",
   description: "Your AI knows what you should learn next.",
+  manifest: "/manifest.webmanifest",
+  themeColor: "#000000",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
