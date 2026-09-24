@@ -8,6 +8,7 @@ import {
   AccuracyTrendChart,
   StudyTimeTrendChart,
   MasteryByTopicChart,
+  MasteryHistoryChart,
 } from "@/components/analytics/AnalyticsCharts";
 import {
   BarChart3,
@@ -106,6 +107,16 @@ export default async function AnalyticsPage() {
             </p>
           </div>
           <MasteryByTopicChart data={data.masteryByTopic} />
+        </section>
+
+        <section className="rounded-3xl border border-line/70 bg-paper/60 p-4 shadow-sm sm:p-5">
+          <div className="mb-4">
+            <h2 className="text-lg font-medium">Mastery over time</h2>
+            <p className="mt-1 text-xs text-ink/45">
+              Real topic-level progress from your practice history
+            </p>
+          </div>
+          <MasteryHistoryChart data={data.masteryHistory} />
         </section>
 
         <section>

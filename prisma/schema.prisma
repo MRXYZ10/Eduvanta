@@ -1,4 +1,4 @@
-// EduVanta AI â€” Database Schema
+// EduVanta AI Ã¢â‚¬â€ Database Schema
 // PostgreSQL + Prisma. pgvector extension used for RAG embeddings (see LearningMaterialChunk).
 
 generator client {
@@ -21,7 +21,7 @@ enum Role {
   STUDENT
   TEACHER
   ADMIN
-  // PARENT reserved for future use â€” schema below already supports linking
+  // PARENT reserved for future use Ã¢â‚¬â€ schema below already supports linking
   // a parent to a student via ParentLink without a migration change.
 }
 
@@ -40,6 +40,7 @@ model User {
   studySessions    StudySession[]
   studyPlans       StudyPlan[]
   masteries        Mastery[]
+  masterySnapshots MasterySnapshot[]
   mistakes         Mistake[]
   examAttempts     ExamAttempt[]
   achievements     Achievement[]
@@ -108,7 +109,7 @@ model Course {
 }
 
 // Links a student to the courses they're actually taking. Added after the
-// rest of the schema â€” see DATABASE.md "Known schema gap" for why this
+// rest of the schema Ã¢â‚¬â€ see DATABASE.md "Known schema gap" for why this
 // didn't exist earlier and what depended on it being missing.
 model Enrollment {
   id         String   @id @default(cuid())
@@ -147,6 +148,7 @@ model Topic {
   concepts     Concept[]
   questions    Question[]
   masteries    Mastery[]
+  masterySnapshots MasterySnapshot[]
   materials    LearningMaterial[]
 
   @@index([subjectId])
@@ -165,7 +167,7 @@ model Subtopic {
   @@index([topicId])
 }
 
-// A Concept is finer-grained than a subtopic â€” this is what mastery is
+// A Concept is finer-grained than a subtopic Ã¢â‚¬â€ this is what mastery is
 // ultimately tracked against (e.g. "function composition" within "Functions").
 model Concept {
   id      String @id @default(cuid())
@@ -233,6 +235,7 @@ model Question {
   @@index([subtopicId])
   @@index([conceptId])
   @@index([difficulty])
+  @@index([topicId, validated, difficulty, createdAt])
 }
 
 model QuestionOption {
@@ -246,7 +249,7 @@ model QuestionOption {
   @@index([questionId])
 }
 
-// One practice/exam "sitting" â€” groups a set of Answers.
+// One practice/exam "sitting" Ã¢â‚¬â€ groups a set of Answers.
 model Attempt {
   id            String   @id @default(cuid())
   userId        String
@@ -277,7 +280,7 @@ model Answer {
   markedForReview Boolean @default(false) // exam mode: "mark for review" flag
   createdAt      DateTime @default(now())
 
-  @@unique([attemptId, questionId]) // one answer per question per attempt â€” resubmits update in place (auto-save)
+  @@unique([attemptId, questionId]) // one answer per question per attempt Ã¢â‚¬â€ resubmits update in place (auto-save)
   @@index([attemptId])
   @@index([questionId])
 }
@@ -294,7 +297,21 @@ enum MasteryBand {
 }
 
 // Mastery is stored per (user, scope) where scope is exactly one of
-// topicId / subtopicId / conceptId â€” see services/mastery for the scoring logic.
+// topicId / subtopicId / conceptId Ã¢â‚¬â€ see services/mastery for the scoring logic.
+model MasterySnapshot {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topicId   String?
+  topic     Topic?   @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  score     Float
+  band      MasteryBand
+  recordedAt DateTime @default(now())
+
+  @@index([userId, recordedAt])
+  @@index([userId, topicId, recordedAt])
+}
+
 model Mastery {
   id         String       @id @default(cuid())
   userId     String
@@ -305,7 +322,7 @@ model Mastery {
   subtopic   Subtopic?    @relation(fields: [subtopicId], references: [id])
   conceptId  String?
   concept    Concept?     @relation(fields: [conceptId], references: [id])
-  score      Float        @default(0) // 0-100, computed â€” see MASTERY_ALGORITHM.md
+  score      Float        @default(0) // 0-100, computed Ã¢â‚¬â€ see MASTERY_ALGORITHM.md
   band       MasteryBand  @default(NEEDS_ATTENTION)
   trend      Float        @default(0) // delta vs previous computation
   lastUpdated DateTime    @updatedAt
@@ -337,6 +354,7 @@ model Mistake {
 
   @@index([userId])
   @@index([conceptId])
+  @@index([userId, conceptId, resolved])
 }
 
 // ==========================================================================
@@ -404,7 +422,7 @@ model Exam {
   examQuestions ExamQuestion[]
 }
 
-// Join table fixing the exact, ordered set of questions in an exam â€” the
+// Join table fixing the exact, ordered set of questions in an exam Ã¢â‚¬â€ the
 // exam simulator needs a stable set/order for navigation, unlike adaptive
 // practice which picks questions on the fly.
 model ExamQuestion {
@@ -490,7 +508,7 @@ model LearningMaterialChunk {
   learningMaterial   LearningMaterial  @relation(fields: [learningMaterialId], references: [id], onDelete: Cascade)
   content            String
   chunkIndex         Int
-  // Embedding vector â€” dimension depends on the embedding model configured;
+  // Embedding vector Ã¢â‚¬â€ dimension depends on the embedding model configured;
   // see AI_ARCHITECTURE.md. Declared as Unsupported until an embedding
   // model + dimension is locked in, then swap to `Unsupported("vector(1536)")`.
   embedding          Unsupported("vector")?
@@ -595,6 +613,7 @@ model Payment {
   @@index([status])
   @@unique([transactionId])
 }
+
 
 
 

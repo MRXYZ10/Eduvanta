@@ -31,6 +31,7 @@ export function ExamRunner({ examId }: { examId: string }) {
   const [submitting, setSubmitting] = useState(false);
   const questionStartRef = useRef<number>(Date.now());
   const submittedRef = useRef(false);
+  const pendingAnswersRef = useRef(new Map<string, { optionLabel?: string; timeTakenMs: number; markedForReview: boolean }>());
 
   useEffect(() => {
     (async () => {
@@ -51,11 +52,47 @@ export function ExamRunner({ examId }: { examId: string }) {
     })();
   }, [examId]);
 
+  const persistAnswer = useCallback(async (questionId: string, payload: { optionLabel?: string; timeTakenMs: number; markedForReview: boolean }) => {
+    if (!examAttemptId) return false;
+    const res = await fetch("/api/exam/answer", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        examAttemptId,
+        questionId,
+        studentAnswer: { optionLabel: payload.optionLabel },
+        timeTakenMs: payload.timeTakenMs,
+        markedForReview: payload.markedForReview,
+      }),
+    });
+    return res.ok;
+  }, [examAttemptId]);
+
+  const flushPendingAnswers = useCallback(async () => {
+    const entries = Array.from(pendingAnswersRef.current.entries());
+    if (!entries.length) return true;
+    const results = await Promise.all(
+      entries.map(async ([questionId, payload]) => ({
+        questionId,
+        ok: await persistAnswer(questionId, payload).catch(() => false),
+      })),
+    );
+    const failed = results.filter((result) => !result.ok);
+    for (const result of results) {
+      if (result.ok) pendingAnswersRef.current.delete(result.questionId);
+    }
+    return failed.length === 0;
+  }, [persistAnswer]);
+
   const submit = useCallback(async () => {
     if (!examAttemptId || submittedRef.current) return;
     submittedRef.current = true;
     setSubmitting(true);
+    setError(null);
     try {
+      const saved = await flushPendingAnswers();
+      if (!saved) throw new Error("Some answers could not be saved. Check your connection and try submitting again.");
+
       const res = await fetch("/api/exam/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -68,7 +105,7 @@ export function ExamRunner({ examId }: { examId: string }) {
       submittedRef.current = false;
       setSubmitting(false);
     }
-  }, [examAttemptId, router]);
+  }, [examAttemptId, flushPendingAnswers, router]);
 
   // Countdown + auto-submit at zero.
   useEffect(() => {
@@ -84,37 +121,51 @@ export function ExamRunner({ examId }: { examId: string }) {
   return () => clearInterval(interval);
   }, [deadline, submit]);
 
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "hidden") void flushPendingAnswers();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [flushPendingAnswers]);
+
   async function saveAnswer(questionId: string, optionId: string) {
     setAnswers((prev) => ({ ...prev, [questionId]: optionId }));
     const timeTakenMs = Date.now() - questionStartRef.current;
     const question = questions.find((q) => q.id === questionId);
     const label = question?.options.find((o) => o.id === optionId)?.label;
 
-    try {
-      await fetch("/api/exam/answer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          examAttemptId,
-          questionId,
-          studentAnswer: { optionLabel: label },
-          timeTakenMs,
-          markedForReview: marked.has(questionId),
-        }),
-      });
-    } catch {
-      // Auto-save failing silently is acceptable here ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â the answer stays in
-      // local state and the next navigation/save attempt will retry it;
-      // submit still uses whatever made it to the server.
-    }
+    const payload = { optionLabel: label, timeTakenMs, markedForReview: marked.has(questionId) };
+    pendingAnswersRef.current.set(questionId, payload);
+    const saved = await persistAnswer(questionId, payload).catch(() => false);
+    if (saved) pendingAnswersRef.current.delete(questionId);
+    else setError("Your answer is kept locally and will be retried before submission.");
   }
 
   function toggleMark(questionId: string) {
+    const nextMarked = !marked.has(questionId);
     setMarked((prev) => {
       const next = new Set(prev);
-      next.has(questionId) ? next.delete(questionId) : next.add(questionId);
+      if (nextMarked) next.add(questionId);
+      else next.delete(questionId);
       return next;
     });
+
+    const existing = answers[questionId];
+    const question = questions.find((item) => item.id === questionId);
+    const label = question?.options.find((option) => option.id === existing)?.label;
+    if (existing && label) {
+      const previous = pendingAnswersRef.current.get(questionId);
+      const payload = {
+        optionLabel: label,
+        timeTakenMs: previous?.timeTakenMs ?? 0,
+        markedForReview: nextMarked,
+      };
+      pendingAnswersRef.current.set(questionId, payload);
+      void persistAnswer(questionId, payload).then((saved) => {
+        if (saved) pendingAnswersRef.current.delete(questionId);
+      });
+    }
   }
 
   function goTo(index: number) {
@@ -161,7 +212,7 @@ export function ExamRunner({ examId }: { examId: string }) {
             <button
               key={qq.id}
               onClick={() => goTo(i)}
-              className={`flex h-8 w-8 items-center justify-center rounded-md border text-xs ${
+              className={`flex h-10 w-10 items-center justify-center rounded-lg border text-xs ${
                 i === current
                   ? "border-cobalt bg-cobalt text-white"
                   : isMarked

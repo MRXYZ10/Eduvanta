@@ -11,10 +11,10 @@ import { prisma } from "@/db/client";
  * migration + a query change here, not a rewrite of the search UI.
  *
  * Authorization is category-specific, not a single blanket rule:
- * - Topics, Questions, Materials are shared course content — any
- *   authenticated user can search all of it, not just their own.
- * - Conversations are private — scoped to `userId` always. Search never
- *   returns another student's conversation, even by title match.
+ * - Topics and Questions are shared course content.
+ * - Uploaded Materials and Conversations are private to the authenticated
+ *   user unless the product later introduces explicit course-level sharing.
+ *   Search never returns another student's private material or conversation.
  */
 
 export interface SearchResults {
@@ -44,7 +44,7 @@ export async function searchAll(query: string, userId: string): Promise<SearchRe
       take: RESULT_LIMIT_PER_CATEGORY,
     }),
     prisma.learningMaterial.findMany({
-      where: { fileName: { contains: trimmed, mode: "insensitive" }, status: "ready" },
+      where: { uploaderId: userId, fileName: { contains: trimmed, mode: "insensitive" }, status: "ready" },
       select: { id: true, fileName: true, topicId: true, topic: { select: { name: true } } },
       take: RESULT_LIMIT_PER_CATEGORY,
     }),

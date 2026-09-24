@@ -18,6 +18,7 @@ export default async function MaterialsPage() {
   const [topics, materials] = await Promise.all([
     prisma.topic.findMany({ orderBy: { order: "asc" } }),
     prisma.learningMaterial.findMany({
+      where: { uploaderId: user.id },
       include: { topic: true, chunks: { select: { id: true } } },
       orderBy: { createdAt: "desc" },
     }),

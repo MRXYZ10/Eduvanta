@@ -23,7 +23,7 @@ const MIN_SIMILARITY = 0.7; // below this, material is probably not actually rel
  */
 export async function retrieveRelevantChunks(
   query: string,
-  opts: { topicId?: string; limit?: number } = {},
+  opts: { topicId?: string; limit?: number; uploaderId?: string } = {},
 ): Promise<RetrievedChunk[]> {
   const embeddingProvider = getEmbeddingProvider();
   if (!embeddingProvider.embed) return [];
@@ -40,6 +40,7 @@ export async function retrieveRelevantChunks(
   // directly (rather than through Prisma's tagged-template parameterization)
   // would reopen the injection risk parameterized queries exist to close.
   const topicFilter = opts.topicId ? Prisma.sql`AND m."topicId" = ${opts.topicId}` : Prisma.empty;
+  const ownerFilter = opts.uploaderId ? Prisma.sql`AND m."uploaderId" = ${opts.uploaderId}` : Prisma.empty;
 
   const rows = await prisma.$queryRaw<Array<{ content: string; fileName: string; distance: number }>>`
     SELECT c.content, m."fileName", (c.embedding <=> ${vectorLiteral}::vector) AS distance
@@ -47,6 +48,7 @@ export async function retrieveRelevantChunks(
     JOIN "LearningMaterial" m ON m.id = c."learningMaterialId"
     WHERE m.status = 'ready'
       ${topicFilter}
+      ${ownerFilter}
     ORDER BY distance ASC
     LIMIT ${limit}
   `;

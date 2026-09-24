@@ -25,3 +25,7 @@ GEMINI_API_KEY=""
 # without an OpenAI key even if you're using Anthropic for chat.
 
 NODE_ENV="development"
+
+# Vercel cron authentication
+CRON_SECRET=replace-with-a-long-random-secret
+DIRECT_URL="postgresql://user:password@localhost:5432/eduvanta"

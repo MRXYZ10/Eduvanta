@@ -22,7 +22,6 @@ const getCachedUserByEmail = unstable_cache(
  * the corresponding EduVanta User row and profile.
  */
 export async function getCurrentUser() {
-  const authStart = Date.now();
   const supabase = createSupabaseServerClient();
 
   const { data: claimsData } = await supabase.auth.getClaims();
@@ -35,17 +34,9 @@ export async function getCurrentUser() {
 
   if (!email) return null;
 
-  console.log(
-    `[AUTH PERF] Supabase getClaims: ${Date.now() - authStart} ms`,
-  );
-
-  const dbStart = Date.now();
 
   let user = await getCachedUserByEmail(email);
 
-  console.log(
-    `[AUTH PERF] User lookup/cache: ${Date.now() - dbStart} ms`,
-  );
 
   if (!user) {
     user = await prisma.user.create({
@@ -61,9 +52,6 @@ export async function getCurrentUser() {
     });
   }
 
-  console.log(
-    `[AUTH PERF] getCurrentUser total: ${Date.now() - authStart} ms`,
-  );
 
   return user;
 }

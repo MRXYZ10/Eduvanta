@@ -80,3 +80,7 @@ the Edge runtime — don't move that route to Edge.
 - **A CDN/image pipeline** if course material or generated content ever
   includes images — nothing in this codebase currently serves images
   besides Next's default static asset handling.
+
+### Scheduled notifications
+
+The app now includes a protected `/api/cron/notifications` endpoint and a Vercel cron entry that runs daily at 07:00 UTC. Set `CRON_SECRET` in Vercel and configure the cron request authorization according to your Vercel project setup. The job creates deduplicated reminders for assignments due within 24 hours and upcoming pending study sessions.

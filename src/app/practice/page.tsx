@@ -7,6 +7,7 @@ import {
   Flame,
   Target,
   Trophy,
+  Sparkles,
 } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/db/client";
@@ -17,17 +18,40 @@ export default async function PracticeIndexPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
+  const enrolledCourses =
+    user.role === "ADMIN" || user.role === "TEACHER"
+      ? []
+      : await prisma.enrollment.findMany({
+          where: { userId: user.id },
+          select: { courseId: true },
+        });
+
+  const enrolledCourseIds = enrolledCourses.map((enrollment) => enrollment.courseId);
+
   const [topics, exams] = await Promise.all([
     prisma.topic.findMany({
-      include: { masteries: { where: { userId: user.id } } },
+      where:
+        user.role === "ADMIN" || user.role === "TEACHER"
+          ? undefined
+          : { subject: { courseId: { in: enrolledCourseIds } } },
+      include: {
+        masteries: { where: { userId: user.id } },
+        subject: { select: { name: true, course: { select: { title: true } } } },
+      },
       orderBy: { order: "asc" },
     }),
-    prisma.exam.findMany({ orderBy: { createdAt: "desc" } }),
+    prisma.exam.findMany({
+      where:
+        user.role === "ADMIN" || user.role === "TEACHER"
+          ? undefined
+          : { OR: [{ courseId: null }, { courseId: { in: enrolledCourseIds } }] },
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
 
   return (
     <AppShell>
-      <header className="mb-8">
+      <header className="studio-hero relative mb-8 p-6 sm:p-8">
         <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cobalt/20 bg-cobalt-soft px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-cobalt">
           <Target className="h-3 w-3" strokeWidth={2} />
           Practice hub
@@ -36,9 +60,13 @@ export default async function PracticeIndexPage() {
         <h1 className="text-3xl sm:text-4xl">Practice</h1>
 
         <p className="mt-2 max-w-2xl text-sm leading-6 text-ink/60">
-          Build confidence with adaptive questions, focused sessions, and mock
-          exams.
+          Build confidence with adaptive quizzes that respond to your answers, surface weak concepts, and keep every session moving.
         </p>
+        <div className="mt-6 grid max-w-xl grid-cols-3 gap-2">
+          <div className="rounded-2xl border border-line/60 bg-paper/60 p-3"><div className="text-lg font-semibold text-ink">{topics.length}</div><div className="text-[10px] font-semibold uppercase tracking-wider text-ink/35">Topics</div></div>
+          <div className="rounded-2xl border border-line/60 bg-paper/60 p-3"><div className="text-lg font-semibold text-ink">∞</div><div className="text-[10px] font-semibold uppercase tracking-wider text-ink/35">1,000+ / topic</div></div>
+          <div className="rounded-2xl border border-line/60 bg-paper/60 p-3"><div className="text-lg font-semibold text-ink">{exams.length}</div><div className="text-[10px] font-semibold uppercase tracking-wider text-ink/35">Mocks</div></div>
+        </div>
       </header>
 
       <div className="mb-8">
@@ -140,7 +168,7 @@ export default async function PracticeIndexPage() {
           </p>
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-line/70 bg-paper/60 shadow-sm">
+        <div className="grid gap-3 sm:grid-cols-2">
           {topics.map((t) => {
             const mastery = t.masteries[0];
 
@@ -148,35 +176,18 @@ export default async function PracticeIndexPage() {
               <Link
                 key={t.id}
                 href={`/practice/${t.id}`}
-                className="group flex items-center gap-4 border-b border-line/50 px-5 py-4 transition-all duration-200 last:border-b-0 hover:bg-cobalt-soft/35"
+                className="group flex min-h-36 flex-col justify-between rounded-3xl border border-line/70 bg-paper/65 p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-cobalt/25 hover:bg-cobalt-soft/30 hover:shadow-lg hover:shadow-cobalt/5"
               >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ink/5 text-xs font-semibold text-ink/45 transition-colors duration-200 group-hover:bg-cobalt-soft group-hover:text-cobalt">
-                  ?
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-cobalt-soft text-cobalt"><Sparkles className="h-4 w-4" /></div>
+                  {mastery ? <MasteryBadge band={mastery.band} /> : <span className="rounded-full border border-line/60 bg-paper px-2.5 py-1 text-[10px] font-medium text-ink/40">New</span>}
+                </div>
+                <div className="mt-5 min-w-0">
+                  <div className="truncate text-base font-semibold tracking-tight text-ink">{t.name}</div>
+                  <div className="mt-1 truncate text-xs text-ink/40">{t.subject.course.title} · {mastery ? `Mastery ${Math.round(mastery.score)}%` : "Ready to learn"}</div>
                 </div>
 
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium text-ink">
-                    {t.name}
-                  </div>
-                  <div className="mt-1 text-xs text-ink/40">
-                    {mastery ? "Continue practicing" : "Start this topic"}
-                  </div>
-                </div>
-
-                <div className="flex shrink-0 items-center gap-2">
-                  {mastery ? (
-                    <MasteryBadge band={mastery.band} />
-                  ) : (
-                    <span className="hidden rounded-full border border-line/60 bg-paper px-2.5 py-1 text-[10px] font-medium text-ink/40 sm:inline-flex">
-                      Not started
-                    </span>
-                  )}
-
-                  <ArrowRight
-                    className="h-4 w-4 text-ink/25 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-cobalt"
-                    strokeWidth={1.8}
-                  />
-                </div>
+                <div className="mt-4 flex items-center justify-between text-xs font-medium text-cobalt"><span>{mastery ? "Continue quiz" : "Start quiz"}</span><ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></div>
               </Link>
             );
           })}

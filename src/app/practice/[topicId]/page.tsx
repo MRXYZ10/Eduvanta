@@ -3,6 +3,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/db/client";
 import { AppShell } from "@/components/AppShell";
 import { PracticeSession } from "@/components/practice/PracticeSession";
+import { ensureQuestionBank } from "@/services/practice/ensureQuestionBank";
+import { canAccessTopic } from "@/lib/topic-access";
 
 export default async function PracticePage({ params }: { params: { topicId: string } }) {
   const user = await getCurrentUser();
@@ -10,12 +12,29 @@ export default async function PracticePage({ params }: { params: { topicId: stri
 
   const topic = await prisma.topic.findUnique({ where: { id: params.topicId } });
   if (!topic) redirect("/practice");
+  if (!(await canAccessTopic(user.id, user.role, topic.id))) redirect("/practice");
 
-  // One Attempt row per session, created server-side so the client never
-  // controls which user/topic an attempt is attributed to.
-  const attempt = await prisma.attempt.create({
-    data: { userId: user.id, mode: "practice", topicId: topic.id },
-  });
+  // Ship with a curated question set for the built-in curriculum so a fresh
+  // course never dead-ends on the first practice visit.
+  await ensureQuestionBank(topic.id);
+
+  // Reuse a recent unfinished session on refresh/back navigation instead of
+  // creating abandoned Attempt rows every time the page renders.
+  const recentCutoff = new Date(Date.now() - 2 * 60 * 60 * 1000);
+  const attempt =
+    (await prisma.attempt.findFirst({
+      where: {
+        userId: user.id,
+        mode: "practice",
+        topicId: topic.id,
+        finishedAt: null,
+        startedAt: { gte: recentCutoff },
+      },
+      orderBy: { startedAt: "desc" },
+    })) ??
+    (await prisma.attempt.create({
+      data: { userId: user.id, mode: "practice", topicId: topic.id },
+    }));
 
   return (
     <AppShell>

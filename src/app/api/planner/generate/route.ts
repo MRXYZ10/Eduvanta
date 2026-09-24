@@ -30,10 +30,9 @@ export async function POST(req: NextRequest) {
   const [topics, masteries, mistakeCounts] = await Promise.all([
     prisma.topic.findMany({ where: { id: { in: topicIds } } }),
     prisma.mastery.findMany({ where: { userId: user.id, topicId: { in: topicIds } } }),
-    prisma.mistake.groupBy({
-      by: ["conceptId"],
-      where: { userId: user.id, resolved: false },
-      _count: true,
+    prisma.mistake.findMany({
+      where: { userId: user.id, resolved: false, conceptId: { not: null } },
+      select: { conceptId: true, concept: { select: { topicId: true } } },
     }),
   ]);
 
@@ -42,11 +41,17 @@ export async function POST(req: NextRequest) {
   }
 
   const masteryByTopic = new Map(masteries.map((m) => [m.topicId, m]));
+  const mistakesByTopic = new Map<string, number>();
+  for (const mistake of mistakeCounts) {
+    const topicId = mistake.concept?.topicId;
+    if (topicId) mistakesByTopic.set(topicId, (mistakesByTopic.get(topicId) ?? 0) + 1);
+  }
+
   const topicInputs: TopicInput[] = topics.map((t) => ({
     id: t.id,
     name: t.name,
     masteryScore: masteryByTopic.get(t.id)?.score ?? null,
-    unresolvedMistakes: mistakeCounts.reduce((sum, mc) => sum + (mc._count ?? 0), 0) > 0 ? 1 : 0, // coarse signal; concept-level mistakes aren't topic-scoped 1:1
+    unresolvedMistakes: mistakesByTopic.get(t.id) ?? 0,
   }));
 
   const startDate = new Date();

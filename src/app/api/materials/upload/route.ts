@@ -23,6 +23,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "File is too large (15MB max)" }, { status: 413 });
   }
 
+  if (file.name.length > 180) {
+    return NextResponse.json({ error: "File name is too long" }, { status: 400 });
+  }
+
+  const allowed = /\.(pdf|txt|md|markdown)$/i.test(file.name);
+  if (!allowed) {
+    return NextResponse.json({ error: "Only PDF, TXT, and Markdown files are supported" }, { status: 415 });
+  }
+
   const buffer = Buffer.from(await file.arrayBuffer());
 
   let extractedText: string;
@@ -38,13 +47,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No extractable text found in this file" }, { status: 422 });
   }
 
-  const result = await processLearningMaterial({
+  let result;
+  try {
+    result = await processLearningMaterial({
     topicId: typeof topicId === "string" && topicId.length > 0 ? topicId : null,
     uploaderId: user.id,
     fileName: file.name,
     fileType: file.type || "unknown",
     extractedText,
-  });
+    });
+  } catch (err) {
+    logApiError({
+      route: "/api/materials/upload",
+      errorMessage: err instanceof Error ? err.message : String(err),
+      statusCode: 500,
+      userId: user.id,
+    });
+    return NextResponse.json({ error: "The material could not be indexed right now. Please try again." }, { status: 500 });
+  }
 
   return NextResponse.json({
     materialId: result.materialId,

@@ -17,6 +17,17 @@ export async function POST(req: NextRequest) {
     include: { examQuestions: { include: { question: { include: { options: true } } }, orderBy: { order: "asc" } } },
   });
   if (!exam) return NextResponse.json({ error: "Exam not found" }, { status: 404 });
+
+  // Course-linked exams are available only to enrolled students. Staff can
+  // still preview/run them for administration and testing.
+  if (exam.courseId && user.role === "STUDENT") {
+    const enrollment = await prisma.enrollment.findUnique({
+      where: { userId_courseId: { userId: user.id, courseId: exam.courseId } },
+      select: { id: true },
+    });
+    if (!enrollment) return NextResponse.json({ error: "Enroll in this course before starting its exam" }, { status: 403 });
+  }
+
   if (exam.examQuestions.length === 0) {
     return NextResponse.json({ error: "This exam has no questions configured yet" }, { status: 422 });
   }

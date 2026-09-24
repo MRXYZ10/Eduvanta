@@ -51,18 +51,45 @@ export async function POST(req: NextRequest) {
   // Authorization: the attempt must belong to this user.
   const attempt = await prisma.attempt.findFirst({ where: { id: attemptId, userId: user.id } });
   if (!attempt) return NextResponse.json({ error: "Attempt not found" }, { status: 404 });
+  if (attempt.mode !== "practice" && attempt.mode !== "focus") {
+    return NextResponse.json({ error: "This endpoint only accepts practice attempts" }, { status: 400 });
+  }
+  if (attempt.finishedAt) {
+    return NextResponse.json({ error: "This practice session has already ended" }, { status: 409 });
+  }
+
+  // A question may only be answered once per attempt. Treat retries caused by
+  // double taps/network replays as conflicts rather than re-running AI
+  // feedback, mastery, streaks, notifications, and achievements.
+  const existingAnswer = await prisma.answer.findUnique({
+    where: { attemptId_questionId: { attemptId, questionId } },
+    select: { id: true },
+  });
+  if (existingAnswer) {
+    return NextResponse.json({ error: "This question has already been answered" }, { status: 409 });
+  }
 
   const question = await prisma.question.findUnique({
     where: { id: questionId },
     include: { concept: true, topic: true, subtopic: true },
   });
   if (!question) return NextResponse.json({ error: "Question not found" }, { status: 404 });
+  if (attempt.topicId && question.topicId !== attempt.topicId) {
+    return NextResponse.json({ error: "Question does not belong to this practice topic" }, { status: 403 });
+  }
 
   const isCorrect = checkCorrectness(question.correctAnswer, studentAnswer);
 
-  const answer = await prisma.answer.create({
-    data: { attemptId, questionId, studentAnswer: studentAnswer as object, isCorrect, timeTakenMs, confidence },
-  });
+  let answer;
+  try {
+    answer = await prisma.answer.create({
+      data: { attemptId, questionId, studentAnswer: studentAnswer as object, isCorrect, timeTakenMs, confidence },
+    });
+  } catch {
+    // A concurrent retry can still win the unique constraint between the
+    // read above and this create. Surface it as a safe conflict.
+    return NextResponse.json({ error: "This question has already been answered" }, { status: 409 });
+  }
 
   // Check whether the *last* answer in this attempt hit the same concept,
   // to distinguish "repeated misconception" from "a new different mistake."
@@ -92,11 +119,11 @@ export async function POST(req: NextRequest) {
           role: "system",
           content:
             "You analyze a student's practice answer and return ONLY a JSON object matching this shape: " +
-            `{"type":"practice_feedback","correct":boolean,"concept":string,"mistake_type":"conceptual"|"careless"|"procedural"|"misread"|"none","explanation":string,"mastery_delta":number (-10 to 10),"next_action":"review_concept"|"next_question"|"teach_concept"|"revise_mistakes","next_question_difficulty":"easy"|"medium"|"hard"}. No prose outside the JSON.`,
+            `{"type":"practice_feedback","correct":boolean,"concept":string,"mistake_type":"conceptual"|"careless"|"procedural"|"misread"|"none","explanation":string,"mastery_delta":number (-10 to 10),"next_action":"review_concept"|"next_question"|"teach_concept"|"revise_mistakes","next_question_difficulty":"easy"|"medium"|"hard"}. No prose outside the JSON. Do not attempt to reconstruct or reveal the answer key.`,
         },
         {
           role: "user",
-          content: `Question: ${question.prompt}\nCorrect answer: ${JSON.stringify(question.correctAnswer)}\nStudent answer: ${JSON.stringify(studentAnswer)}\nWas correct: ${isCorrect}\nConcept: ${question.concept?.name ?? question.topic?.name ?? "unknown"}`,
+          content: `Question: ${question.prompt}\nStudent answer: ${JSON.stringify(studentAnswer)}\nServer-verified correctness: ${isCorrect}\nConcept: ${question.concept?.name ?? question.topic?.name ?? "unknown"}\nReference explanation: ${question.explanation ?? "Not provided."}`,
         },
       ],
     });
@@ -159,7 +186,16 @@ export async function POST(req: NextRequest) {
     take: 30,
   });
   const repeatedMistakeCount = await prisma.mistake.count({
-    where: { userId: user.id, ...scopeWhere, occurrences: { gt: 1 }, resolved: false },
+    where: {
+      userId: user.id,
+      resolved: false,
+      occurrences: { gt: 1 },
+      ...(question.conceptId
+        ? { conceptId: question.conceptId }
+        : question.subtopicId
+          ? { question: { subtopicId: question.subtopicId } }
+          : { question: { topicId: question.topicId } }),
+    },
   });
 
   const { score, band } = calculateMastery({
@@ -188,6 +224,19 @@ export async function POST(req: NextRequest) {
     : await prisma.mastery.create({
         data: { userId: user.id, ...scopeWhere, score, band, trend },
       });
+
+  // Persist a lightweight topic-level history point so analytics can show
+  // real mastery progression rather than only the current score.
+  if (question.topicId) {
+    await prisma.masterySnapshot.create({
+      data: {
+        userId: user.id,
+        topicId: question.topicId,
+        score,
+        band,
+      },
+    });
+  }
 
   // Achievement: fires only the moment this scope first reaches MASTERED —
   // see checkMasteryMilestoneAchievement's doc comment for why repeats and

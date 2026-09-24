@@ -22,6 +22,7 @@ export function SearchBar() {
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const requestRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (open) inputRef.current?.focus();
@@ -39,21 +40,39 @@ export function SearchBar() {
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (query.trim().length < 2) {
+    requestRef.current?.abort();
+
+    const normalized = query.trim();
+    if (normalized.length < 2) {
       setResults(EMPTY);
+      setLoading(false);
       return;
     }
+
     setLoading(true);
+    const controller = new AbortController();
+    requestRef.current = controller;
+
     debounceRef.current = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
-        if (res.ok) setResults(await res.json());
+        const res = await fetch(`/api/search?q=${encodeURIComponent(normalized)}`, {
+          signal: controller.signal,
+          headers: { Accept: "application/json" },
+        });
+        if (!res.ok) throw new Error("Search failed");
+        const body = (await res.json()) as SearchResults;
+        if (!controller.signal.aborted) setResults(body);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (!controller.signal.aborted) setResults(EMPTY);
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
-    }, 300);
+    }, 250);
+
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      controller.abort();
     };
   }, [query]);
 

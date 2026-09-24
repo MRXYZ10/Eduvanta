@@ -51,7 +51,11 @@ html {
 }
 
 body {
-  background: rgb(var(--paper));
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at 85% 0%, rgb(var(--cobalt) / 0.06), transparent 28rem),
+    radial-gradient(circle at 0% 30%, rgb(var(--signal) / 0.035), transparent 24rem),
+    rgb(var(--paper));
   color: rgb(var(--ink));
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   text-rendering: optimizeLegibility;
@@ -101,4 +105,171 @@ a {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Premium interaction layer */
+button, a {
+  touch-action: manipulation;
+}
+
+::selection {
+  background: rgb(var(--cobalt) / 0.2);
+}
+
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* EduVanta studio UI */
+.app-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  width: 270px;
+  flex-direction: column;
+  gap: 0.75rem;
+  border-right: 1px solid rgb(var(--line) / 0.8);
+  background: linear-gradient(180deg, rgb(var(--paper) / 0.98), rgb(var(--paper) / 0.9));
+  padding: 1.35rem 1rem 1rem;
+}
+
+.brand-mark {
+  display: grid;
+  height: 42px;
+  width: 42px;
+  place-items: center;
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgb(var(--cobalt)), rgb(var(--cobalt) / 0.72));
+  color: white;
+  font-weight: 700;
+  box-shadow: 0 10px 24px rgb(var(--cobalt) / 0.22), inset 0 1px rgb(255 255 255 / 0.25);
+}
+
+.sidebar-label {
+  margin: 1.35rem 0 0.25rem;
+  padding: 0 0.75rem;
+  color: rgb(var(--ink) / 0.32);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.sidebar-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 44px;
+  border-radius: 14px;
+  padding: 0.65rem 0.7rem;
+  color: rgb(var(--ink) / 0.58);
+  font-size: 0.84rem;
+  transition: transform 180ms ease, background 180ms ease, color 180ms ease, box-shadow 180ms ease;
+}
+.sidebar-link:hover { transform: translateX(2px); background: rgb(var(--cobalt) / 0.055); color: rgb(var(--cobalt)); }
+.sidebar-link.is-active { color: rgb(var(--cobalt)); background: linear-gradient(90deg, rgb(var(--cobalt) / 0.12), rgb(var(--cobalt) / 0.055)); box-shadow: inset 3px 0 rgb(var(--cobalt)); }
+
+.nav-icon-wrap { display: grid; height: 30px; width: 30px; place-items: center; border-radius: 10px; background: rgb(var(--ink) / 0.045); transition: background 180ms ease, transform 180ms ease; }
+.sidebar-link.is-active .nav-icon-wrap { background: rgb(var(--cobalt) / 0.13); }
+.sidebar-link:hover .nav-icon-wrap { transform: scale(1.04); }
+
+.sidebar-tip {
+  display: flex;
+  gap: 0.65rem;
+  border: 1px solid rgb(var(--line) / 0.75);
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgb(var(--cobalt) / 0.055), rgb(var(--signal) / 0.04));
+  padding: 0.75rem;
+}
+
+.app-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  min-height: 64px;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid rgb(var(--line) / 0.55);
+  background: rgb(var(--paper) / 0.78);
+  backdrop-filter: blur(12px) saturate(1.1);
+}
+@media (min-width: 768px) { .app-topbar { padding: 0.8rem 2rem; border-bottom: 0; background: rgb(var(--paper) / 0.55); } }
+
+.app-main { animation: page-in 300ms ease-out both; }
+.mobile-nav { position: fixed; inset: auto 0 0; z-index: 40; padding: 0.45rem 0.35rem max(0.45rem, env(safe-area-inset-bottom)); border-top: 1px solid rgb(var(--line) / 0.7); background: rgb(var(--paper) / 0.9); backdrop-filter: blur(14px) saturate(1.1); box-shadow: 0 -12px 34px rgb(0 0 0 / 0.06); }
+.mobile-nav-item { display: flex; min-width: 0; flex: 1; flex-direction: column; align-items: center; gap: 0.2rem; border-radius: 14px; padding: 0.42rem 0.2rem; color: rgb(var(--ink) / 0.43); transition: 160ms ease; }
+.mobile-nav-item.is-active { color: rgb(var(--cobalt)); background: rgb(var(--cobalt) / 0.1); }
+.mobile-nav-item .nav-icon-wrap { height: 27px; width: 34px; background: transparent; }
+
+.studio-hero {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgb(var(--line) / 0.7);
+  border-radius: 28px;
+  background: linear-gradient(135deg, rgb(var(--cobalt) / 0.12), rgb(var(--paper) / 0.86) 48%, rgb(var(--signal) / 0.07));
+  box-shadow: 0 18px 55px rgb(var(--ink) / 0.055);
+}
+.studio-hero::after { content: ""; position: absolute; right: -5rem; top: -6rem; height: 15rem; width: 15rem; border-radius: 999px; background: rgb(var(--cobalt) / 0.12); filter: blur(24px); pointer-events: none; }
+
+.studio-card { border: 1px solid rgb(var(--line) / 0.7); border-radius: 22px; background: rgb(var(--paper) / 0.68); box-shadow: 0 8px 30px rgb(var(--ink) / 0.035); transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease; }
+.studio-card:hover { transform: translateY(-2px); box-shadow: 0 16px 42px rgb(var(--ink) / 0.07); border-color: rgb(var(--cobalt) / 0.2); }
+
+@media (hover: none) {
+  .studio-card:hover, .sidebar-link:hover { transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) { .studio-card, .sidebar-link, .nav-icon-wrap { transition: none; } }
+
+
+/* Performance-friendly defaults for dense learning screens. */
+img, svg { max-width: 100%; }
+.content-auto { content-visibility: auto; contain-intrinsic-size: 1px 320px; }
+.smooth-scroll { overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
+
+
+/* Nova visual layer — presentation only; chat behavior remains unchanged. */
+.nova-shell {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 12% 12%, rgb(var(--cobalt) / .08), transparent 28%),
+    radial-gradient(circle at 88% 20%, rgb(var(--signal) / .07), transparent 25%),
+    rgb(var(--paper));
+  box-shadow: 0 28px 90px rgb(var(--ink) / .09), 0 3px 18px rgb(var(--ink) / .04);
+}
+.nova-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: .32;
+  background-image: radial-gradient(rgb(var(--ink) / .08) .7px, transparent .7px);
+  background-size: 18px 18px;
+  mask-image: linear-gradient(to bottom, black, transparent 72%);
+}
+.nova-header { position: relative; box-shadow: 0 1px 0 rgb(var(--line) / .35), 0 12px 30px rgb(var(--ink) / .025); }
+.nova-avatar { box-shadow: 0 10px 30px rgb(var(--signal) / .13); animation: nova-float 5s ease-in-out infinite; }
+.nova-avatar::after { content:""; position:absolute; inset:-5px; border:1px solid rgb(var(--signal) / .12); border-radius:18px; animation:nova-pulse 2.8s ease-out infinite; }
+.nova-messages { scrollbar-width: thin; scrollbar-color: rgb(var(--ink) / .12) transparent; }
+.nova-empty { position: relative; }
+.nova-empty::before { content:""; position:absolute; width:22rem; height:22rem; border-radius:50%; background:radial-gradient(circle, rgb(var(--cobalt) / .08), transparent 68%); filter:blur(4px); pointer-events:none; }
+.nova-orb { position:relative; z-index:1; box-shadow:0 22px 60px rgb(var(--signal) / .16), inset 0 1px 0 rgb(255 255 255 / .35); animation:nova-float 5s ease-in-out infinite; }
+.nova-orb::before { content:""; position:absolute; inset:7px; border-radius:20px; border:1px solid rgb(var(--signal) / .16); }
+.nova-title { position:relative; z-index:1; }
+.nova-suggestion { box-shadow: 0 5px 20px rgb(var(--ink) / .025); }
+.nova-suggestion:hover { box-shadow: 0 16px 38px rgb(var(--cobalt) / .09); }
+.nova-message { animation: nova-message-in 260ms cubic-bezier(.2,.8,.2,1) both; }
+.nova-input { box-shadow: 0 12px 38px rgb(var(--ink) / .055); }
+.nova-send { box-shadow: 0 8px 22px rgb(var(--cobalt) / .22); }
+@keyframes nova-float { 0%,100% { transform:translateY(0) } 50% { transform:translateY(-3px) } }
+@keyframes nova-pulse { 0% { transform:scale(.96); opacity:.7 } 70%,100% { transform:scale(1.08); opacity:0 } }
+@keyframes nova-message-in { from { opacity:0; transform:translateY(5px) scale(.995) } to { opacity:1; transform:none } }
+@media (prefers-reduced-motion: reduce) {
+  .nova-avatar,.nova-orb { animation:none; }
+  .nova-avatar::after { animation:none; }
+  .nova-message { animation:none; }
 }

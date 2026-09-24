@@ -1,5 +1,5 @@
 // Provider-agnostic contract. Every feature (Nova tutor, question generation,
-// mistake analysis, study planning) talks to this interface only Ã¢â‚¬â€ never to
+// mistake analysis, study planning) talks to this interface only ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â never to
 // OpenAI/Gemini/Anthropic SDKs directly. That's what makes swapping providers
 // a config change instead of a rewrite.
 
@@ -12,12 +12,14 @@ export interface AiMessage {
 
 export interface AiCompletionRequest {
   messages: AiMessage[];
-  /** Hint for model tier, not a specific model name Ã¢â‚¬â€ the provider maps this. */
+  /** Optional base64/data URLs for Nova vision requests. */
+  imageDataUrls?: string[];
+  /** Hint for model tier, not a specific model name ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â the provider maps this. */
   tier?: "fast" | "standard" | "reasoning";
   maxTokens?: number;
   temperature?: number;
   /** If set, provider must return valid JSON matching this shape's intent.
-   *  Callers still validate server-side Ã¢â‚¬â€ see services/ai/validate.ts. */
+   *  Callers still validate server-side ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â see services/ai/validate.ts. */
   jsonMode?: boolean;
 }
 

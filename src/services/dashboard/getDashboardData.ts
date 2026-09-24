@@ -7,7 +7,7 @@ import { calculateExamReadiness } from "./calculateExamReadiness";
  * unit-testable without rendering React.
  */
 export async function getDashboardData(userId: string) {
-  const [profile, masteries, recommendations, todaySessions, mistakeCount] = await Promise.all([
+  const [profile, masteries, recommendations, todaySessions, mistakeCount, upcomingAssignments] = await Promise.all([
     prisma.profile.findUnique({ where: { userId } }),
     prisma.mastery.findMany({
       where: { userId },
@@ -25,6 +25,15 @@ export async function getDashboardData(userId: string) {
       take: 4,
     }),
     prisma.mistake.count({ where: { userId, resolved: false } }),
+    prisma.assignment.findMany({
+      where: {
+        course: { enrollments: { some: { userId } } },
+        OR: [{ dueDate: null }, { dueDate: { gte: new Date() } }],
+      },
+      include: { course: { select: { title: true } } },
+      orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
+      take: 5,
+    }),
   ]);
 
   const overallMastery = masteries.length
@@ -56,6 +65,12 @@ export async function getDashboardData(userId: string) {
     },
     weeklyImprovement,
     todaySessions,
+    upcomingAssignments: upcomingAssignments.map((assignment) => ({
+      id: assignment.id,
+      title: assignment.title,
+      courseTitle: assignment.course.title,
+      dueDate: assignment.dueDate,
+    })),
     recommendations,
     masteries: masteries.map((m) => ({
       id: m.id,

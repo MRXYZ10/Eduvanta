@@ -15,6 +15,12 @@ interface TopicMastery {
   score: number;
 }
 
+interface MasteryHistoryPoint {
+  date: string;
+  topicName: string;
+  score: number;
+}
+
 function formatDateShort(dateStr: string) {
   const d = new Date(dateStr);
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -96,6 +102,45 @@ export function MasteryByTopicChart({ data }: { data: TopicMastery[] }) {
         />
         <Bar dataKey="score" fill={cobalt} radius={[0, 3, 3, 0]} />
       </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function MasteryHistoryChart({ data }: { data: MasteryHistoryPoint[] }) {
+  const { cobalt, signal, line, ink } = useThemeColors();
+  if (data.length === 0) {
+    return <p className="py-8 text-center text-sm text-ink/40">Mastery history will appear after you practice.</p>;
+  }
+
+  const topicNames = Array.from(new Set(data.map((p) => p.topicName))).slice(0, 6);
+  const topicSet = new Set(topicNames);
+  const rows = new Map<string, Record<string, string | number>>();
+  for (const point of data) {
+    if (!topicSet.has(point.topicName)) continue;
+    const date = point.date.slice(0, 10);
+    const row = rows.get(date) ?? { date };
+    row[point.topicName] = point.score;
+    rows.set(date, row);
+  }
+  const grouped = Array.from(rows.values()).sort((a, b) =>
+    String(a.date).localeCompare(String(b.date)),
+  );
+
+  return (
+    <ResponsiveContainer width="100%" height={260}>
+      <LineChart data={grouped} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+        <CartesianGrid stroke={line} vertical={false} />
+        <XAxis dataKey="date" tickFormatter={formatDateShort} tick={{ fontSize: 11, fill: ink, fillOpacity: 0.5 }} />
+        <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: ink, fillOpacity: 0.5 }} />
+        <Tooltip
+          labelFormatter={(d) => formatDateShort(d as string)}
+          formatter={(value: number, name: string) => [`${value}%`, name]}
+          contentStyle={{ fontSize: 12, borderRadius: 6, border: `1px solid ${line}` }}
+        />
+        {topicNames.map((topic, index) => (
+          <Line key={topic} type="monotone" dataKey={topic} stroke={index % 2 === 0 ? cobalt : signal} strokeWidth={2} dot={false} />
+        ))}
+      </LineChart>
     </ResponsiveContainer>
   );
 }

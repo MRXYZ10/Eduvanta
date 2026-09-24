@@ -15,7 +15,7 @@ export default async function LearnPage() {
 
   return (
     <AppShell>
-      <header className="mb-8">
+      <header className="studio-hero relative mb-8 p-6 sm:p-8">
         <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cobalt/20 bg-cobalt-soft px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-cobalt">
           <BookOpen className="h-3 w-3" strokeWidth={2} />
           Learning hub
@@ -24,9 +24,13 @@ export default async function LearnPage() {
         <h1 className="text-3xl sm:text-4xl">Learn</h1>
 
         <p className="mt-2 max-w-2xl text-sm leading-6 text-ink/60">
-          Your enrolled courses and topics, organized around the subjects you
-          selected.
+          Your enrolled courses and topics, now organized into short lessons, examples and adaptive quizzes.
         </p>
+        <div className="mt-6 flex flex-wrap items-center gap-2">
+          <span className="rounded-full border border-line/60 bg-paper/65 px-3 py-1.5 text-[11px] font-semibold text-ink/55">{courses.length} enrolled course{courses.length === 1 ? "" : "s"}</span>
+          <span className="rounded-full border border-line/60 bg-paper/65 px-3 py-1.5 text-[11px] font-semibold text-ink/55">Short lessons</span>
+          <span className="rounded-full border border-line/60 bg-paper/65 px-3 py-1.5 text-[11px] font-semibold text-ink/55">Adaptive quizzes</span>
+        </div>
       </header>
 
       {courses.length === 0 ? (
@@ -39,9 +43,9 @@ export default async function LearnPage() {
           {courses.map((course) => (
             <section
               key={course.id}
-              className="overflow-hidden rounded-3xl border border-line/70 bg-paper/60 shadow-sm"
+              className="studio-card overflow-hidden"
             >
-              <div className="border-b border-line/60 bg-cobalt-soft/35 px-5 py-5 sm:px-6">
+              <div className="border-b border-line/60 bg-cobalt-soft/25 px-5 py-5 sm:px-6">
                 <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-cobalt/70">
                   Course
                 </div>
@@ -68,7 +72,7 @@ export default async function LearnPage() {
                       {subject.topics.map((topic) => (
                         <Link
                           key={topic.id}
-                          href={`/practice/${topic.id}`}
+                          href={`/learn/${topic.id}`}
                           className="group flex items-center gap-4 border-b border-line/50 px-4 py-4 transition-all duration-200 last:border-b-0 hover:bg-cobalt-soft/35 sm:px-5"
                         >
                           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ink/5 text-xs font-semibold text-ink/45 transition-colors duration-200 group-hover:bg-cobalt-soft group-hover:text-cobalt">
@@ -117,6 +121,14 @@ export default async function LearnPage() {
           ))}
         </div>
       )}
+
+      <Link
+        href="/learn/catalog"
+        className="group mr-2 mt-7 inline-flex items-center gap-1.5 rounded-full border border-cobalt/20 bg-cobalt-soft px-3.5 py-2 text-xs font-medium text-cobalt transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm"
+      >
+        Explore course catalog
+        <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" strokeWidth={1.8} />
+      </Link>
 
       <Link
         href="/materials"

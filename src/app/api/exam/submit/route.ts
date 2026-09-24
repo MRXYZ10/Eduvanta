@@ -73,13 +73,25 @@ export async function POST(req: NextRequest) {
   }
 
   const now = new Date();
-  await prisma.$transaction([
-    prisma.attempt.update({ where: { id: examAttempt.attempt.id }, data: { finishedAt: now } }),
-    prisma.examAttempt.update({
+  // Claim the submission atomically so a double-tap/retried request cannot
+  // award streaks/achievements twice.
+  const claimed = await prisma.examAttempt.updateMany({
+    where: { id: examAttempt.id, userId: user.id, finishedAt: null },
+    data: { finishedAt: now, score: report.score, report: { ...report, narrative } as object },
+  });
+
+  if (claimed.count === 0) {
+    const existing = await prisma.examAttempt.findUnique({
       where: { id: examAttempt.id },
-      data: { finishedAt: now, score: report.score, report: { ...report, narrative } as object },
-    }),
-  ]);
+      select: { score: true, report: true },
+    });
+    return NextResponse.json({ score: existing?.score ?? report.score, report: existing?.report ?? { ...report, narrative } });
+  }
+
+  await prisma.attempt.updateMany({
+    where: { id: examAttempt.attempt.id, userId: user.id, finishedAt: null },
+    data: { finishedAt: now },
+  });
 
   const streakOutcome = await recordStreakActivity(user.id);
   if (streakOutcome.extended && streakOutcome.currentStreak > 1) {

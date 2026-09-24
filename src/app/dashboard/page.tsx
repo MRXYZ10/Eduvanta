@@ -90,6 +90,39 @@ export default async function DashboardPage() {
 
         <AiRecommendations recommendations={data.recommendations} />
 
+        {data.upcomingAssignments.length > 0 && (
+          <section>
+            <div className="mb-4 flex items-end justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-medium tracking-tight text-ink">
+                  Upcoming assignments
+                </h2>
+                <p className="mt-1 text-xs text-ink/45">
+                  Deadlines from courses you are enrolled in.
+                </p>
+              </div>
+              <a href="/learn" className="shrink-0 text-xs font-medium text-cobalt underline underline-offset-2">
+                Open learning hub →
+              </a>
+            </div>
+            <div className="overflow-hidden rounded-2xl border border-line/70 bg-paper/60 shadow-sm">
+              {data.upcomingAssignments.map((assignment) => (
+                <div key={assignment.id} className="flex items-center justify-between gap-4 border-b border-line/50 px-5 py-4 last:border-b-0">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-ink">{assignment.title}</p>
+                    <p className="mt-1 truncate text-xs text-ink/45">{assignment.courseTitle}</p>
+                  </div>
+                  <span className="shrink-0 text-xs text-ink/50">
+                    {assignment.dueDate
+                      ? new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(assignment.dueDate))
+                      : "No due date"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         <section>
           <a href="/mistakes" className="text-sm text-cobalt underline underline-offset-2">
             Review your Mistake Vault -&gt;

@@ -9,8 +9,10 @@ export async function DELETE(_req: NextRequest, { params }: { params: { material
   const material = await prisma.learningMaterial.findUnique({ where: { id: params.materialId } });
   if (!material) return NextResponse.json({ error: "Material not found" }, { status: 404 });
 
-  // Authorization: only the uploader or a teacher/admin can remove material.
-  if (material.uploaderId !== user.id && user.role === "STUDENT") {
+  // Uploaded study material is private to its uploader unless an admin
+  // explicitly removes it. Teachers should not be able to delete another
+  // user's material merely because they have a teacher role.
+  if (material.uploaderId !== user.id && user.role !== "ADMIN") {
     return NextResponse.json({ error: "You can't remove material you didn't upload" }, { status: 403 });
   }
 

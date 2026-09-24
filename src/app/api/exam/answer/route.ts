@@ -39,8 +39,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Time's up — this exam can no longer accept answers." }, { status: 409 });
   }
 
-  const question = await prisma.question.findUnique({ where: { id: questionId } });
-  if (!question) return NextResponse.json({ error: "Question not found" }, { status: 404 });
+  const question = await prisma.question.findFirst({
+    where: {
+      id: questionId,
+      examQuestions: { some: { examId: examAttempt.examId } },
+    },
+  });
+  if (!question) return NextResponse.json({ error: "Question is not part of this exam" }, { status: 404 });
 
   const isCorrect = checkCorrectness(question.correctAnswer, studentAnswer);
 

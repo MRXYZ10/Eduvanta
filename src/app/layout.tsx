@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Sans } from "next/font/google";
 import { cookies } from "next/headers";
 import "./globals.css";
@@ -12,11 +12,17 @@ const sans = IBM_Plex_Sans({
   weight: ["400", "500", "600"],
 });
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#000000",
+};
+
 export const metadata: Metadata = {
   title: "EduVanta AI",
   description: "Your AI knows what you should learn next.",
   manifest: "/manifest.webmanifest",
-  themeColor: "#000000",
 };
 
 export default async function RootLayout({
