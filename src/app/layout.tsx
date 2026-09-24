@@ -4,9 +4,15 @@ import { cookies } from "next/headers";
 import "./globals.css";
 import "katex/dist/katex.min.css";
 import { ToastProvider } from "@/components/ui/Toast";
+import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 
 const serif = { variable: "" };
-const sans = IBM_Plex_Sans({ subsets: ["latin"], variable: "--font-sans", weight: ["400", "500", "600"] });
+
+const sans = IBM_Plex_Sans({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  weight: ["400", "500", "600"],
+});
 
 export const metadata: Metadata = {
   title: "EduVanta AI",
@@ -15,20 +21,28 @@ export const metadata: Metadata = {
   themeColor: "#000000",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   // Reading the theme cookie server-side and applying the class here
-  // (rather than only client-side after mount) avoids a flash of the
-  // wrong theme on first paint — the HTML arrives already in the
-  // preferred mode instead of light-then-flip.
+  // rather than only client-side after mount avoids a flash of the
+  // wrong theme on first paint.
   const theme = cookies().get("theme")?.value;
   const isDark = theme === "dark";
 
   return (
-    <html lang="en" className={`${serif.variable} ${sans.variable} ${isDark ? "dark" : ""}`}>
+    <html
+      lang="en"
+      className={`${serif.variable} ${sans.variable} ${
+        isDark ? "dark" : ""
+      }`}
+    >
       <body className="bg-paper text-ink font-sans antialiased">
+        <ServiceWorkerRegistration />
         <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   );
 }
-
