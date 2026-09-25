@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   Sparkles,
   Copy,
@@ -36,6 +36,30 @@ interface ChatMessage {
 interface SelectedImage {
   file: File;
   preview: string;
+}
+
+interface SpeechRecognitionLike {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  start: () => void;
+  stop: () => void;
+  abort?: () => void;
+  onstart: (() => void) | null;
+  onresult:
+    | ((event: SpeechRecognitionResultLike) => void)
+    | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+}
+
+interface SpeechRecognitionResultLike {
+  resultIndex: number;
+  results: ArrayLike<
+    ArrayLike<{
+      transcript: string;
+    }>
+  >;
 }
 
 const MAX_IMAGES = 3;
@@ -78,12 +102,12 @@ function fileToDataUrl(file: File): Promise<string> {
       if (typeof reader.result === "string") {
         resolve(reader.result);
       } else {
-        reject(new Error("Could not preview image"));
+        reject(new Error("Could not preview image."));
       }
     };
 
     reader.onerror = () => {
-      reject(new Error("Could not read image"));
+      reject(new Error("Could not read image."));
     };
 
     reader.readAsDataURL(file);
@@ -103,14 +127,17 @@ export function TutorChat({
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [examMode, setExamMode] = useState(false);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [listening, setListening] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(
+    null,
+  );
 
   const [selectedImages, setSelectedImages] = useState<
     SelectedImage[]
   >([]);
 
-  const [showAttachMenu, setShowAttachMenu] = useState(false);
-  const [listening, setListening] = useState(false);
+  const [showAttachMenu, setShowAttachMenu] =
+    useState(false);
 
   const [error, setError] = useState<{
     text: string;
@@ -121,20 +148,30 @@ export function TutorChat({
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const galleryInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef =
+    useRef<HTMLInputElement>(null);
+  const cameraInputRef =
+    useRef<HTMLInputElement>(null);
+  const fileInputRef =
+    useRef<HTMLInputElement>(null);
 
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef =
+    useRef<SpeechRecognitionLike | null>(null);
+
+  /* --------------------------------
+     Auto scroll
+  -------------------------------- */
 
   useEffect(() => {
-    if (!scrollRef.current) return;
-
-    scrollRef.current.scrollTo({
+    scrollRef.current?.scrollTo({
       top: scrollRef.current.scrollHeight,
       behavior: "smooth",
     });
   }, [messages, error]);
+
+  /* --------------------------------
+     Auto resize textarea
+  -------------------------------- */
 
   useEffect(() => {
     const textarea = inputRef.current;
@@ -142,19 +179,33 @@ export function TutorChat({
     if (!textarea) return;
 
     textarea.style.height = "auto";
-    textarea.style.height =
-      `${Math.min(textarea.scrollHeight, 140)}px`;
+
+    textarea.style.height = `${Math.min(
+      textarea.scrollHeight,
+      140,
+    )}px`;
   }, [input]);
+
+  /* --------------------------------
+     Cleanup voice recognition
+  -------------------------------- */
 
   useEffect(() => {
     return () => {
       try {
-        recognitionRef.current?.abort();
+        recognitionRef.current?.abort?.();
+        recognitionRef.current?.stop();
       } catch {
         // Ignore cleanup errors.
       }
+
+      recognitionRef.current = null;
     };
   }, []);
+
+  /* --------------------------------
+     Copy
+  -------------------------------- */
 
   async function copyMessage(
     id: string,
@@ -162,17 +213,22 @@ export function TutorChat({
   ) {
     try {
       await navigator.clipboard.writeText(content);
+
       setCopiedId(id);
 
       window.setTimeout(() => {
         setCopiedId(null);
       }, 1500);
     } catch {
-      // Ignore clipboard errors.
+      // Clipboard unavailable.
     }
   }
 
-  function findPreviousUserMessage(index: number) {
+  /* --------------------------------
+     Find previous user message
+  -------------------------------- */
+
+  function getLastUserMessage(index: number) {
     for (let i = index - 1; i >= 0; i -= 1) {
       if (messages[i]?.role === "user") {
         return messages[i];
@@ -182,22 +238,43 @@ export function TutorChat({
     return null;
   }
 
+  /* --------------------------------
+     Regenerate
+  -------------------------------- */
+
   async function regenerate(index: number) {
     if (sending) return;
 
     const previousUser =
-      findPreviousUserMessage(index);
+      getLastUserMessage(index);
 
     if (!previousUser) return;
 
-    setMessages((current) =>
-      current.slice(0, index),
+    const userIndex = messages.findIndex(
+      (message) =>
+        message.id === previousUser.id,
     );
 
-    await sendMessage(previousUser.content);
+    setMessages((current) =>
+      current.slice(
+        0,
+        Math.max(0, userIndex),
+      ),
+    );
+
+    await sendMessage(
+      previousUser.content,
+      undefined,
+    );
   }
 
-  async function selectImages(files: FileList | null) {
+  /* --------------------------------
+     Select images
+  -------------------------------- */
+
+  async function selectImages(
+    files: FileList | null,
+  ) {
     if (!files || files.length === 0) return;
 
     setShowAttachMenu(false);
@@ -205,18 +282,19 @@ export function TutorChat({
     const incoming = Array.from(files);
 
     if (
-      selectedImages.length + incoming.length >
+      selectedImages.length +
+        incoming.length >
       MAX_IMAGES
     ) {
       setError({
-        text: `Maximum ${MAX_IMAGES} images can be attached.`,
+        text: `You can attach maximum ${MAX_IMAGES} images.`,
         retryMessage: "",
       });
 
       return;
     }
 
-    const valid: SelectedImage[] = [];
+    const validImages: SelectedImage[] = [];
 
     for (const file of incoming) {
       if (!file.type.startsWith("image/")) {
@@ -238,9 +316,10 @@ export function TutorChat({
       }
 
       try {
-        const preview = await fileToDataUrl(file);
+        const preview =
+          await fileToDataUrl(file);
 
-        valid.push({
+        validImages.push({
           file,
           preview,
         });
@@ -252,57 +331,89 @@ export function TutorChat({
       }
     }
 
-    if (valid.length > 0) {
+    if (validImages.length > 0) {
       setSelectedImages((current) => [
         ...current,
-        ...valid,
+        ...validImages,
       ]);
 
       setError(null);
     }
   }
 
+  /* --------------------------------
+     Remove image
+  -------------------------------- */
+
   function removeImage(index: number) {
     setSelectedImages((current) =>
-      current.filter((_, i) => i !== index),
+      current.filter(
+        (_, imageIndex) =>
+          imageIndex !== index,
+      ),
     );
   }
 
+  /* --------------------------------
+     Voice input
+  -------------------------------- */
+
   function toggleVoice() {
-    if (listening) {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (recognitionRef.current) {
       try {
-        recognitionRef.current?.stop();
+        recognitionRef.current.stop();
       } catch {
         // Ignore.
       }
 
+      recognitionRef.current = null;
       setListening(false);
+
       return;
     }
 
-    const browserWindow = window as any;
+    const speechWindow =
+      window as Window & {
+        SpeechRecognition?: new () =>
+          SpeechRecognitionLike;
+        webkitSpeechRecognition?: new () =>
+          SpeechRecognitionLike;
+      };
 
     const SpeechRecognition =
-      browserWindow.SpeechRecognition ||
-      browserWindow.webkitSpeechRecognition;
+      speechWindow.SpeechRecognition ??
+      speechWindow.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
       setError({
         text:
-          "Voice input is not supported in this browser. Try Chrome or Edge.",
+          "Voice input is not supported in this browser. Try Chrome on Android.",
         retryMessage: "",
       });
 
       return;
     }
 
-    const recognition = new SpeechRecognition();
+    const recognition =
+      new SpeechRecognition();
 
     recognition.lang = "en-IN";
     recognition.continuous = false;
     recognition.interimResults = true;
 
-    recognition.onresult = (event: any) => {
+    const startingText =
+      input.trim();
+
+    recognition.onstart = () => {
+      setListening(true);
+      setError(null);
+    };
+
+    recognition.onresult = (event) => {
       let transcript = "";
 
       for (
@@ -311,17 +422,20 @@ export function TutorChat({
         i += 1
       ) {
         transcript +=
-          event.results[i][0]?.transcript || "";
+          event.results[i]?.[0]
+            ?.transcript ?? "";
       }
 
-      if (transcript) {
-        setInput((current) => {
-          const separator =
-            current.trim().length > 0 ? " " : "";
+      const cleaned =
+        transcript.trim();
 
-          return current + separator + transcript;
-        });
-      }
+      if (!cleaned) return;
+
+      setInput(
+        startingText
+          ? `${startingText} ${cleaned}`
+          : cleaned,
+      );
     };
 
     recognition.onerror = () => {
@@ -334,16 +448,20 @@ export function TutorChat({
       recognitionRef.current = null;
     };
 
-    recognitionRef.current = recognition;
+    recognitionRef.current =
+      recognition;
 
     try {
       recognition.start();
-      setListening(true);
     } catch {
-      setListening(false);
       recognitionRef.current = null;
+      setListening(false);
     }
   }
+
+  /* --------------------------------
+     Send message
+  -------------------------------- */
 
   async function sendMessage(
     messageText: string,
@@ -356,9 +474,13 @@ export function TutorChat({
         ? imagesOverride
         : selectedImages;
 
-    const cleanMessage = messageText.trim();
+    const cleanMessage =
+      messageText.trim();
 
-    if (!cleanMessage && images.length === 0) {
+    if (
+      !cleanMessage &&
+      images.length === 0
+    ) {
       return;
     }
 
@@ -370,20 +492,31 @@ export function TutorChat({
     setError(null);
     setShowAttachMenu(false);
 
-    const imagePreviews = images.map(
-      (image) => image.preview,
-    );
+    const imagePreviews =
+      images.map(
+        (image) => image.preview,
+      );
+
+    const userMessage: ChatMessage = {
+      id: `user-${Date.now()}-${Math.random()}`,
+      role: "user",
+      content: finalMessage,
+      imagePreviews:
+        imagePreviews.length > 0
+          ? imagePreviews
+          : undefined,
+    };
+
+    const assistantId =
+      `assistant-${Date.now()}-${Math.random()}`;
 
     setMessages((current) => [
       ...current,
+      userMessage,
       {
-        id: crypto.randomUUID(),
-        role: "user",
-        content: finalMessage,
-        imagePreviews:
-          imagePreviews.length > 0
-            ? imagePreviews
-            : undefined,
+        id: assistantId,
+        role: "assistant",
+        content: "",
       },
     ]);
 
@@ -394,8 +527,13 @@ export function TutorChat({
       let body: BodyInit;
       let headers: HeadersInit | undefined;
 
+      /* ----------------------------
+         Image request
+      ---------------------------- */
+
       if (images.length > 0) {
-        const formData = new FormData();
+        const formData =
+          new FormData();
 
         if (conversationId) {
           formData.append(
@@ -404,7 +542,10 @@ export function TutorChat({
           );
         }
 
-        formData.append("message", finalMessage);
+        formData.append(
+          "message",
+          finalMessage,
+        );
 
         if (currentTopicId) {
           formData.append(
@@ -428,8 +569,13 @@ export function TutorChat({
 
         body = formData;
       } else {
+        /* ----------------------------
+           Normal text request
+        ---------------------------- */
+
         headers = {
-          "Content-Type": "application/json",
+          "Content-Type":
+            "application/json",
         };
 
         body = JSON.stringify({
@@ -440,160 +586,278 @@ export function TutorChat({
         });
       }
 
-      const response = await fetch(
-        "/api/tutor/chat",
-        {
-          method: "POST",
-          headers,
-          body,
-        },
-      );
+      const response =
+        await fetch(
+          "/api/tutor/chat",
+          {
+            method: "POST",
+            headers,
+            body,
+          },
+        );
 
-      if (!response.ok || !response.body) {
-        const text = await response.text();
+      if (!response.ok) {
+        let errorBody: {
+          error?: string;
+          message?: string;
+          conversationId?: string;
+        } = {};
+
+        try {
+          errorBody =
+            await response.json();
+        } catch {
+          // Ignore invalid JSON.
+        }
+
+        if (
+          errorBody.conversationId
+        ) {
+          setConversationId(
+            errorBody.conversationId,
+          );
+        }
 
         throw new Error(
-          text || "Nova could not answer.",
+          errorBody.error ??
+            errorBody.message ??
+            `Nova request failed (${response.status}).`,
+        );
+      }
+
+      if (!response.body) {
+        throw new Error(
+          "Nova did not return a response stream.",
         );
       }
 
       const reader =
         response.body.getReader();
 
-      const decoder = new TextDecoder();
+      const decoder =
+        new TextDecoder();
 
       let buffer = "";
+
       let assistantContent = "";
-      let assistantId = crypto.randomUUID();
+
+      /* ----------------------------
+         Update assistant
+      ---------------------------- */
 
       function updateAssistant(
         content: string,
       ) {
-        setMessages((current) => {
-          const exists = current.some(
-            (message) =>
-              message.id === assistantId,
-          );
-
-          if (!exists) {
-            return [
-              ...current,
-              {
-                id: assistantId,
-                role: "assistant",
-                content,
-              },
-            ];
-          }
-
-          return current.map((message) => {
-            if (message.id !== assistantId) {
-              return message;
-            }
-
-            return {
-              ...message,
-              content,
-            };
-          });
-        });
+        setMessages((current) =>
+          current.map((message) =>
+            message.id === assistantId
+              ? {
+                  ...message,
+                  content,
+                }
+              : message,
+          ),
+        );
       }
 
-      function processLine(line: string) {
-        const trimmed = line.trim();
+      /* ----------------------------
+         Process SSE event
+      ---------------------------- */
 
-        if (!trimmed.startsWith("data:")) {
+      function processEvent(
+        event: string,
+      ) {
+        const lines =
+          event.split("\n");
+
+        const dataLine =
+          lines.find((line) =>
+            line.startsWith(
+              "data:",
+            ),
+          );
+
+        if (!dataLine) return;
+
+        const jsonText =
+          dataLine
+            .slice(5)
+            .trim();
+
+        if (
+          !jsonText ||
+          jsonText === "[DONE]"
+        ) {
           return;
         }
 
-        const payload = trimmed
-          .slice(5)
-          .trim();
-
-        if (!payload || payload === "[DONE]") {
-          return;
-        }
-
-        let data: any;
+        let data: {
+          type?: string;
+          messageId?: string;
+          conversationId?: string;
+          content?: string;
+          message?: string;
+          error?: string;
+        };
 
         try {
-          data = JSON.parse(payload);
+          data =
+            JSON.parse(jsonText);
         } catch {
           return;
         }
 
-        if (data.type === "start") {
-          if (data.messageId) {
-            assistantId = data.messageId;
-          }
+        /* start */
 
-          return;
-        }
-
-        if (data.type === "chunk") {
-          assistantContent += data.content || "";
-
-          updateAssistant(assistantContent);
-
-          return;
-        }
-
-        if (data.type === "done") {
-          if (data.conversationId) {
+        if (
+          data.type === "start"
+        ) {
+          if (
+            data.conversationId
+          ) {
             setConversationId(
               data.conversationId,
             );
           }
 
-          if (data.content) {
-            assistantContent = data.content;
-
-            updateAssistant(assistantContent);
+          if (
+            data.messageId &&
+            data.messageId !==
+              assistantId
+          ) {
+            setMessages(
+              (current) =>
+                current.map(
+                  (message) =>
+                    message.id ===
+                    assistantId
+                      ? {
+                          ...message,
+                          id: data.messageId!,
+                        }
+                      : message,
+                ),
+            );
           }
 
           return;
         }
 
-        if (data.type === "error") {
+        /* chunk */
+
+        if (
+          data.type === "chunk"
+        ) {
+          if (data.content) {
+            assistantContent +=
+              data.content;
+
+            updateAssistant(
+              assistantContent,
+            );
+          }
+
+          return;
+        }
+
+        /* done */
+
+        if (
+          data.type === "done"
+        ) {
+          if (
+            data.conversationId
+          ) {
+            setConversationId(
+              data.conversationId,
+            );
+          }
+
+          if (
+            typeof data.content ===
+            "string"
+          ) {
+            assistantContent =
+              data.content;
+
+            updateAssistant(
+              assistantContent,
+            );
+          }
+
+          return;
+        }
+
+        /* error */
+
+        if (
+          data.type === "error"
+        ) {
           throw new Error(
-            data.message ||
+            data.error ??
+              data.message ??
               "Nova could not answer.",
           );
         }
       }
 
+      /* ----------------------------
+         Read stream
+      ---------------------------- */
+
       while (true) {
-        const result = await reader.read();
+        const {
+          done,
+          value,
+        } = await reader.read();
 
-        if (result.done) break;
+        if (done) break;
 
-        buffer += decoder.decode(
-          result.value,
-          {
-            stream: true,
-          },
-        );
+        buffer +=
+          decoder.decode(
+            value,
+            {
+              stream: true,
+            },
+          );
 
-        const lines = buffer.split("\n");
+        const events =
+          buffer.split(
+            "\n\n",
+          );
 
-        buffer = lines.pop() || "";
+        buffer =
+          events.pop() ?? "";
 
-        for (const line of lines) {
-          processLine(line);
+        for (const event of events) {
+          processEvent(event);
         }
       }
 
+      /* Flush decoder */
+
+      buffer +=
+        decoder.decode();
+
       if (buffer.trim()) {
-        processLine(buffer);
+        processEvent(buffer);
       }
     } catch (err) {
-      const message =
+      setMessages((current) =>
+        current.filter(
+          (message) =>
+            message.id !==
+            assistantId,
+        ),
+      );
+
+      const errorText =
         err instanceof Error
           ? err.message
-          : "Something went wrong.";
+          : "Nova could not connect right now.";
 
       setError({
-        text: message,
+        text: errorText,
         retryMessage: finalMessage,
         retryImages:
           images.length > 0
@@ -605,196 +869,102 @@ export function TutorChat({
     }
   }
 
+  /* --------------------------------
+     Form submit
+  -------------------------------- */
+
   function submitForm(
-    event: React.FormEvent<HTMLFormElement>,
+    event: FormEvent<HTMLFormElement>,
   ) {
     event.preventDefault();
+
     void sendMessage(input);
   }
 
-  function useSuggestion(text: string) {
+  /* --------------------------------
+     Suggestion
+  -------------------------------- */
+
+  function useSuggestion(
+    text: string,
+  ) {
     setInput(text);
     inputRef.current?.focus();
   }
 
-  function useFollowUp(text: string) {
-    void sendMessage(text);
+  /* --------------------------------
+     Follow up
+  -------------------------------- */
+
+  function useFollowUp(
+    action: string,
+  ) {
+    if (
+      action ===
+      "Explain simpler"
+    ) {
+      void sendMessage(
+        "Explain your previous answer in simpler words with an easy example.",
+      );
+
+      return;
+    }
+
+    if (
+      action ===
+      "Give another example"
+    ) {
+      void sendMessage(
+        "Give me another simple example related to your previous answer.",
+      );
+
+      return;
+    }
+
+    void sendMessage(
+      "Quiz me on the concept you just explained.",
+    );
   }
 
+  /* --------------------------------
+     UI
+  -------------------------------- */
+
   return (
-    <div className="flex h-full min-h-0 flex-col bg-paper">
-      <div
-        ref={scrollRef}
-        className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6"
-      >
-        <div className="mx-auto w-full max-w-4xl">
-          {messages.length === 0 && !sending ? (
-            <div className="flex min-h-[55vh] flex-col items-center justify-center text-center">
-              <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-cobalt/10">
-                <Sparkles className="h-8 w-8 text-cobalt" />
-              </div>
+    <div className="nova-shell flex h-[calc(100dvh-7rem)] min-h-[520px] flex-col overflow-hidden rounded-[30px] border border-line/60 bg-paper shadow-2xl md:h-[calc(100dvh-6rem)]">
 
-              <h2 className="text-2xl font-bold text-ink">
-                Hi, I&apos;m Nova 👋
-              </h2>
+      {/* ============================
+          HEADER
+      ============================ */}
 
-              <p className="mt-2 max-w-lg text-sm leading-6 text-muted">
-                Ask me anything about your
-                studies. You can also send a
-                photo of a question and I&apos;ll
-                help you solve it.
-              </p>
+      <header className="flex shrink-0 items-center justify-between border-b border-line/60 bg-paper/70 px-4 py-3 backdrop-blur-xl md:px-6">
+        <div className="flex items-center gap-3">
 
-              <div className="mt-7 grid w-full max-w-2xl grid-cols-1 gap-2 sm:grid-cols-2">
-                {SUGGESTED_ACTIONS.map(
-                  (action) => {
-                    const Icon = action.icon;
+          <div className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-signal-soft ring-1 ring-signal/20">
+            <Sparkles
+              className="h-5 w-5 text-signal"
+              strokeWidth={1.7}
+            />
 
-                    return (
-                      <button
-                        key={action.label}
-                        type="button"
-                        onClick={() =>
-                          useSuggestion(
-                            action.label,
-                          )
-                        }
-                        className="flex items-center gap-3 rounded-xl border border-line/70 bg-white/70 px-4 py-3 text-left text-sm transition hover:border-cobalt/30 hover:bg-cobalt/5"
-                      >
-                        <Icon className="h-4 w-4 text-cobalt" />
-                        <span>
-                          {action.label}
-                        </span>
-                      </button>
-                    );
-                  },
-                )}
-              </div>
+            <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-paper bg-signal" />
+          </div>
+
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="bg-gradient-to-r from-ink via-cobalt to-signal bg-clip-text text-sm font-bold tracking-tight text-transparent">
+                Nova
+              </h1>
+
+              <span className="rounded-full bg-signal-soft px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-signal">
+                AI Tutor
+              </span>
             </div>
-          ) : null}
 
-          <div className="space-y-6">
-            {messages.map(
-              (message, index) => {
-                const isUser =
-                  message.role === "user";
+            <p className="text-[11px] text-ink/45">
+              Your personal study companion
+            </p>
+          </div>
+        </div>
 
-                return (
-                  <div
-                    key={message.id}
-                    className={
-                      isUser
-                        ? "flex justify-end"
-                        : "flex justify-start"
-                    }
-                  >
-                    <div
-                      className={
-                        isUser
-                          ? "max-w-[90%] sm:max-w-[78%]"
-                          : "w-full max-w-[90%] sm:max-w-[82%]"
-                      }
-                    >
-                      {isUser &&
-                      message.imagePreviews &&
-                      message.imagePreviews.length >
-                        0 ? (
-                        <div className="mb-2 flex flex-wrap justify-end gap-2">
-                          {message.imagePreviews.map(
-                            (
-                              image,
-                              imageIndex,
-                            ) => (
-                              <img
-                                key={`${message.id}-${imageIndex}`}
-                                src={image}
-                                alt={`Attached image ${imageIndex + 1}`}
-                                className="max-h-56 max-w-[240px] rounded-xl border border-line object-cover"
-                              />
-                            ),
-                          )}
-                        </div>
-                      ) : null}
-
-                      <div
-                        className={
-                          isUser
-                            ? "rounded-2xl rounded-br-md bg-cobalt px-4 py-3 text-white shadow-sm"
-                            : "rounded-2xl rounded-bl-md border border-line/60 bg-white px-4 py-4 text-ink shadow-sm"
-                        }
-                      >
-                        {isUser ? (
-                          <p className="whitespace-pre-wrap text-sm leading-6">
-                            {message.content}
-                          </p>
-                        ) : (
-                          <div className="prose prose-sm max-w-none prose-headings:text-ink prose-p:text-ink prose-li:text-ink prose-strong:text-ink">
-                            <ReactMarkdown
-                              remarkPlugins={[
-                                remarkGfm,
-                                remarkMath,
-                              ]}
-                              rehypePlugins={[
-                                rehypeKatex,
-                              ]}
-                              children={normalizeTutorMarkdown(
-                                message.content,
-                              )}
-                            />
-                          </div>
-                        )}
-                      </div>
-
-                      {!isUser ? (
-                        <div className="mt-2 flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void copyMessage(
-                                message.id,
-                                message.content,
-                              )
-                            }
-                            className="rounded-lg p-2 text-muted transition hover:bg-line/30 hover:text-ink"
-                            title="Copy"
-                          >
-                            {copiedId ===
-                            message.id ? (
-                              <Check className="h-4 w-4" />
-                            ) : (
-                              <Copy className="h-4 w-4" />
-                            )}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void regenerate(
-                                index,
-                              )
-                            }
-                            disabled={sending}
-                            className="rounded-lg p-2 text-muted transition hover:bg-line/30 hover:text-ink disabled:opacity-40"
-                            title="Regenerate"
-                          >
-                            <RotateCcw className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ) : null}
-
-                      {!isUser &&
-                      index ===
-                        messages.length - 1 &&
-                      !sending ? (
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {FOLLOW_UP_ACTIONS.map(
-                            (action) => (
-                              <button
-                                key={action}
-                                type="button"
-                                onClick={() =>
-                                  useFollowUp(
-                                    action,
-                                  )
-                                }
-                                className="rounded-full border border-line/70 bg-white px-3 py-1.5 text-xs text-muted transition hover:border-cobalt/30 hover:bg-cobal
+        <div className="hidden items-center gap-1.5 rounded-full border border-line/70 bg-paper px-2.5 py-1 text-[10px] text-ink/45 sm:flex">
+          <span className="h-1.5 w-1.5 rounded-full bg-signal" />
