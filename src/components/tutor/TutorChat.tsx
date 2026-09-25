@@ -290,60 +290,140 @@ export function TutorChat({
     if (!SpeechRecognition) {
       setError({
         text:
-          "Voice input is not supported in this browser. Try Chrome or Edge.",
+          "Voice input isn't supported here. If you're using the app, this usually means the app's WebView doesn't expose speech recognition — try Chrome in a regular browser tab instead.",
         retryMessage: "",
       });
 
       return;
     }
 
-    const recognition = new SpeechRecognition();
+    if (
+      typeof window !== "undefined" &&
+      window.isSecureContext === false
+    ) {
+      setError({
+        text:
+          "Voice input needs a secure (https) connection to work.",
+        retryMessage: "",
+      });
 
-    recognition.lang = "en-IN";
-    recognition.continuous = false;
-    recognition.interimResults = true;
+      return;
+    }
 
-    recognition.onresult = (event: any) => {
-      let transcript = "";
+    function startRecognition() {
+      const recognition = new SpeechRecognition();
 
-      for (
-        let i = event.resultIndex;
-        i < event.results.length;
-        i += 1
-      ) {
-        transcript +=
-          event.results[i][0]?.transcript || "";
-      }
+      recognition.lang = "en-IN";
+      recognition.continuous = false;
+      recognition.interimResults = true;
 
-      if (transcript) {
-        setInput((current) => {
-          const separator =
-            current.trim().length > 0 ? " " : "";
+      recognition.onstart = () => {
+        setListening(true);
+        setError(null);
+      };
 
-          return current + separator + transcript;
+      recognition.onresult = (event: any) => {
+        let transcript = "";
+
+        for (
+          let i = event.resultIndex;
+          i < event.results.length;
+          i += 1
+        ) {
+          transcript +=
+            event.results[i][0]?.transcript || "";
+        }
+
+        if (transcript) {
+          setInput((current) => {
+            const separator =
+              current.trim().length > 0 ? " " : "";
+
+            return current + separator + transcript;
+          });
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        setListening(false);
+        recognitionRef.current = null;
+
+        const reason = event?.error as
+          | string
+          | undefined;
+
+        const messages: Record<string, string> = {
+          "not-allowed":
+            "Microphone access was blocked. Allow microphone permission for this app and try again.",
+          "service-not-allowed":
+            "Microphone access was blocked. Allow microphone permission for this app and try again.",
+          "audio-capture":
+            "No microphone was found on this device.",
+          network:
+            "Voice input needs an internet connection.",
+          "no-speech":
+            "Didn't catch that — try speaking again.",
+        };
+
+        if (reason && reason !== "no-speech") {
+          setError({
+            text:
+              messages[reason] ??
+              `Voice input stopped (${reason}).`,
+            retryMessage: "",
+          });
+        }
+      };
+
+      recognition.onend = () => {
+        setListening(false);
+        recognitionRef.current = null;
+      };
+
+      recognitionRef.current = recognition;
+
+      try {
+        recognition.start();
+      } catch {
+        setListening(false);
+        recognitionRef.current = null;
+
+        setError({
+          text: "Couldn't start voice input. Please try again.",
+          retryMessage: "",
         });
       }
-    };
-
-    recognition.onerror = () => {
-      setListening(false);
-      recognitionRef.current = null;
-    };
-
-    recognition.onend = () => {
-      setListening(false);
-      recognitionRef.current = null;
-    };
-
-    recognitionRef.current = recognition;
-
-    try {
-      recognition.start();
-      setListening(true);
-    } catch {
-      setListening(false);
-      recognitionRef.current = null;
     }
+
+    // Ask for the microphone explicitly first. On many in-app
+    // WebViews, SpeechRecognition silently does nothing unless
+    // getUserMedia has been granted in the same gesture.
+    if (navigator.mediaDevices?.getUserMedia) {
+      navigator.mediaDevices
+        .getUserMedia({ audio: true })
+        .then((stream) => {
+          stream.getTracks().forEach((track) => track.stop());
+          startRecognition();
+        })
+        .catch((err: any) => {
+          const name = err?.name as string | undefined;
+
+          setError({
+            text:
+              name === "NotAllowedError" ||
+              name === "PermissionDeniedError"
+                ? "Microphone access was denied. Allow microphone permission for this app and try again."
+                : name === "NotFoundError"
+                  ? "No microphone was found on this device."
+                  : "Couldn't access the microphone on this device.",
+            retryMessage: "",
+          });
+        });
+
+      return;
+    }
+
+    startRecognition();
   }
 
   async function sendMessage(
@@ -829,22 +909,28 @@ export function TutorChat({
                 .role === "user") ? (
               <div className="flex items-start gap-2.5">
                 <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cobalt/10 ring-1 ring-cobalt/15">
-                  <Sparkles className="h-3.5 w-3.5 text-cobalt" />
+                  <Sparkles className="h-3.5 w-3.5 animate-pulse text-cobalt" />
                 </div>
 
-                <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-md border border-line/60 bg-white px-4 py-3.5 shadow-sm shadow-black/[0.02]">
-                  <span
-                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-cobalt/50"
-                    style={{ animationDelay: "0ms" }}
-                  />
-                  <span
-                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-cobalt/50"
-                    style={{ animationDelay: "120ms" }}
-                  />
-                  <span
-                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-cobalt/50"
-                    style={{ animationDelay: "240ms" }}
-                  />
+                <div className="flex items-center gap-2.5 rounded-2xl rounded-bl-md border border-line/60 bg-white px-4 py-3 shadow-sm shadow-black/[0.02]">
+                  <span className="text-sm text-muted">
+                    Nova is thinking
+                  </span>
+
+                  <span className="flex items-center gap-1">
+                    <span
+                      className="h-1.5 w-1.5 animate-bounce rounded-full bg-cobalt/50"
+                      style={{ animationDelay: "0ms" }}
+                    />
+                    <span
+                      className="h-1.5 w-1.5 animate-bounce rounded-full bg-cobalt/50"
+                      style={{ animationDelay: "150ms" }}
+                    />
+                    <span
+                      className="h-1.5 w-1.5 animate-bounce rounded-full bg-cobalt/50"
+                      style={{ animationDelay: "300ms" }}
+                    />
+                  </span>
                 </div>
               </div>
             ) : null}
