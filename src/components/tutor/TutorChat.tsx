@@ -25,7 +25,50 @@ import remarkMath from "remark-math";
 import remarkGfm from "remark-gfm";
 import rehypeKatex from "rehype-katex";
 
-import { normalizeTutorMarkdown } from "./normalizeTutorMarkdown";
+/* -------------------------------------------------------------------------- */
+/*                         SAFE NOVA MARKDOWN / MATH                          */
+/* -------------------------------------------------------------------------- */
+
+function normalizeTutorMarkdown(input: string): string {
+  if (!input) return "";
+
+  let text = input.replace(/\r\n/g, "\n");
+
+  // Convert completed ```math / ```latex fences to display math.
+  text = text.replace(
+    /```(?:math|latex)\s*\n?([\s\S]*?)\n?```/gi,
+    (_match, body: string) => {
+      const value = body.trim();
+      return value ? `\n\n$$\n${value}\n$$\n\n` : "";
+    },
+  );
+
+  // While streaming, close an unfinished math fence temporarily so raw
+  // ```math / ```latex never appears in the UI.
+  text = text.replace(
+    /```(?:math|latex)\s*\n?([\s\S]*)$/gi,
+    (_match, body: string) => {
+      const value = body.trim();
+      return value ? `\n\n$$\n${value}\n$$\n` : "";
+    },
+  );
+
+  // Convert common LaTeX display/inline delimiters.
+  text = text.replace(
+    /\\\[\s*([\s\S]*?)\s*\\\]/g,
+    (_match, body: string) => `\n\n$$\n${body.trim()}\n$$\n\n`,
+  );
+
+  text = text.replace(
+    /\\\(\s*([\s\S]*?)\s*\\\)/g,
+    (_match, body: string) => `$${body.trim()}$`,
+  );
+
+  // Remove empty display blocks created by streaming.
+  text = text.replace(/\$\$\s*\$\$/g, "");
+
+  return text;
+}
 
 interface ChatMessage {
   id: string;
