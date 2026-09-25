@@ -710,23 +710,24 @@ export function TutorChat({
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-paper">
 
-      {/* ───────────────── HEADER ───────────────── */}
+      {/* HEADER */}
 
-      <header className="flex shrink-0 items-center justify-between border-b border-line/60 bg-paper/90 px-4 py-3 backdrop-blur-xl sm:px-6">
+      <header className="flex shrink-0 items-center justify-between border-b border-line/60 bg-paper/95 px-4 py-3 backdrop-blur-xl sm:px-6">
         <div className="flex items-center gap-3">
-          <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cobalt to-cobalt/75 shadow-sm shadow-cobalt/20">
-            <Sparkles className="h-4 w-4 text-white" />
 
-            <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-paper bg-emerald-400" />
+          <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-cobalt/10 ring-1 ring-cobalt/15">
+            <Sparkles className="h-4 w-4 text-cobalt" />
+
+            <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-paper bg-emerald-500" />
           </div>
 
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-sm font-semibold text-ink">
+              <h1 className="text-sm font-bold text-ink">
                 Nova
               </h1>
 
-              <span className="rounded-full bg-cobalt/8 px-2 py-0.5 text-[10px] font-medium text-cobalt">
+              <span className="rounded-full bg-cobalt/10 px-2 py-0.5 text-[10px] font-semibold text-cobalt">
                 AI Tutor
               </span>
             </div>
@@ -737,47 +738,42 @@ export function TutorChat({
           </div>
         </div>
 
-        <div className="hidden items-center gap-2 sm:flex">
-          <div className="flex items-center gap-1.5 rounded-full border border-line/70 bg-white/70 px-3 py-1.5 text-[11px] text-muted">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            Ready to help
-          </div>
+        <div className="hidden items-center gap-1.5 rounded-full border border-line/70 bg-white/50 px-3 py-1.5 text-[11px] font-medium text-ink sm:flex">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+          Ready
         </div>
       </header>
 
-      {/* ───────────────── CHAT ───────────────── */}
+      {/* CHAT */}
 
       <div
         ref={scrollRef}
-        className="min-h-0 flex-1 overflow-y-auto scroll-smooth"
+        className="min-h-0 flex-1 overflow-y-auto"
       >
         <div className="mx-auto w-full max-w-4xl px-4 py-7 sm:px-6 sm:py-9">
 
           {/* EMPTY STATE */}
 
           {messages.length === 0 && !sending ? (
-            <div className="flex min-h-[calc(100vh-260px)] flex-col items-center justify-center py-8 text-center">
+            <div className="flex min-h-[55vh] flex-col items-center justify-center py-8 text-center">
 
               <div className="relative mb-7">
                 <div className="absolute inset-0 scale-150 rounded-full bg-cobalt/10 blur-3xl" />
 
-                <div className="relative flex h-20 w-20 items-center justify-center rounded-[24px] border border-cobalt/15 bg-gradient-to-br from-cobalt/15 via-white to-cobalt/5 shadow-lg shadow-cobalt/10">
+                <div className="relative flex h-20 w-20 items-center justify-center rounded-[24px] border border-cobalt/15 bg-cobalt/5 shadow-lg shadow-cobalt/10">
                   <Sparkles className="h-8 w-8 text-cobalt" />
                 </div>
               </div>
 
-              <div className="max-w-xl">
-                <h2 className="text-3xl font-bold tracking-tight text-ink sm:text-4xl">
-                  What are we learning today?
-                </h2>
+              <h2 className="text-3xl font-bold tracking-tight text-ink sm:text-4xl">
+                What are we learning today?
+              </h2>
 
-                <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-muted sm:text-[15px]">
-                  Ask Nova anything about your studies.
-                  Explain concepts, solve questions,
-                  analyze photos, or prepare for your
-                  exams.
-                </p>
-              </div>
+              <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-muted sm:text-[15px]">
+                Ask Nova anything about your studies.
+                Explain concepts, solve questions,
+                analyze photos, or prepare for exams.
+              </p>
 
               <div className="mt-8 grid w-full max-w-2xl grid-cols-1 gap-2.5 sm:grid-cols-2">
                 {SUGGESTED_ACTIONS.map(
@@ -793,13 +789,13 @@ export function TutorChat({
                             action.label,
                           )
                         }
-                        className="group flex items-center gap-3 rounded-2xl border border-line/70 bg-white/80 p-3.5 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-cobalt/25 hover:bg-white hover:shadow-md"
+                        className="group flex items-center gap-3 rounded-2xl border border-line/70 bg-white/60 p-3.5 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-cobalt/25 hover:bg-white hover:shadow-md"
                       >
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cobalt/8 text-cobalt transition-colors group-hover:bg-cobalt/12">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cobalt/10 text-cobalt">
                           <Icon className="h-[18px] w-[18px]" />
                         </span>
 
-                        <span className="min-w-0">
+                        <span>
                           <span className="block text-sm font-semibold text-ink">
                             {action.label}
                           </span>
@@ -814,9 +810,8 @@ export function TutorChat({
                 )}
               </div>
 
-              <p className="mt-7 text-[11px] text-muted/70">
-                You can also upload a question or
-                speak to Nova.
+              <p className="mt-7 text-[11px] text-muted">
+                You can upload a question or speak to Nova.
               </p>
             </div>
           ) : null}
@@ -838,11 +833,8 @@ export function TutorChat({
                         : "flex items-start gap-3"
                     }
                   >
-
-                    {/* NOVA AVATAR */}
-
                     {!isUser ? (
-                      <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-cobalt/15 bg-cobalt/8">
+                      <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-cobalt/15 bg-cobalt/10">
                         <Sparkles className="h-3.5 w-3.5 text-cobalt" />
                       </div>
                     ) : null}
@@ -855,12 +847,11 @@ export function TutorChat({
                       }
                     >
 
-                      {/* IMAGE ATTACHMENTS */}
+                      {/* USER IMAGE */}
 
                       {isUser &&
                       message.imagePreviews &&
-                      message.imagePreviews.length >
-                        0 ? (
+                      message.imagePreviews.length > 0 ? (
                         <div className="mb-2 flex flex-wrap justify-end gap-2">
                           {message.imagePreviews.map(
                             (
@@ -869,7 +860,7 @@ export function TutorChat({
                             ) => (
                               <div
                                 key={`${message.id}-${imageIndex}`}
-                                className="overflow-hidden rounded-2xl border border-white/30 bg-white shadow-sm"
+                                className="overflow-hidden rounded-2xl border border-line bg-white shadow-sm"
                               >
                                 <img
                                   src={image}
@@ -882,7 +873,7 @@ export function TutorChat({
                         </div>
                       ) : null}
 
-                      {/* MESSAGE BUBBLE */}
+                      {/* MESSAGE */}
 
                       <div
                         className={
@@ -892,11 +883,11 @@ export function TutorChat({
                         }
                       >
                         {isUser ? (
-                          <p className="whitespace-pre-wrap text-sm leading-6">
+                          <p className="whitespace-pre-wrap text-sm leading-6 text-white">
                             {message.content}
                           </p>
                         ) : (
-                          <div className="prose prose-sm max-w-none prose-headings:mb-3 prose-headings:mt-5 prose-headings:font-semibold prose-headings:text-ink prose-p:my-2 prose-p:leading-7 prose-p:text-ink prose-li:text-ink prose-strong:text-ink prose-code:rounded prose-code:bg-cobalt/5 prose-code:px-1 prose-code:py-0.5 prose-code:text-cobalt">
+                          <div className="prose prose-sm max-w-none prose-headings:font-semibold prose-headings:text-ink prose-p:text-ink prose-p:leading-7 prose-li:text-ink prose-strong:text-ink prose-code:bg-cobalt/5 prose-code:text-cobalt">
                             <ReactMarkdown
                               remarkPlugins={[
                                 remarkGfm,
@@ -914,7 +905,7 @@ export function TutorChat({
                         )}
                       </div>
 
-                      {/* ASSISTANT ACTIONS */}
+                      {/* ACTIONS */}
 
                       {!isUser ? (
                         <div className="mt-1.5 flex items-center gap-1">
@@ -926,23 +917,18 @@ export function TutorChat({
                                 message.content,
                               )
                             }
-                            className="flex h-8 items-center gap-1.5 rounded-lg px-2 text-[11px] text-muted transition hover:bg-white hover:text-ink"
-                            title="Copy"
+                            className="flex h-8 items-center gap-1.5 rounded-lg px-2 text-[11px] font-medium text-muted transition hover:bg-white hover:text-ink"
                           >
                             {copiedId ===
                             message.id ? (
                               <>
                                 <Check className="h-3.5 w-3.5 text-emerald-500" />
-                                <span className="hidden sm:block">
-                                  Copied
-                                </span>
+                                <span>Copied</span>
                               </>
                             ) : (
                               <>
                                 <Copy className="h-3.5 w-3.5" />
-                                <span className="hidden sm:block">
-                                  Copy
-                                </span>
+                                <span>Copy</span>
                               </>
                             )}
                           </button>
@@ -955,13 +941,10 @@ export function TutorChat({
                               )
                             }
                             disabled={sending}
-                            className="flex h-8 items-center gap-1.5 rounded-lg px-2 text-[11px] text-muted transition hover:bg-white hover:text-ink disabled:opacity-40"
-                            title="Regenerate"
+                            className="flex h-8 items-center gap-1.5 rounded-lg px-2 text-[11px] font-medium text-muted transition hover:bg-white hover:text-ink disabled:opacity-40"
                           >
                             <RotateCcw className="h-3.5 w-3.5" />
-                            <span className="hidden sm:block">
-                              Regenerate
-                            </span>
+                            <span>Regenerate</span>
                           </button>
                         </div>
                       ) : null}
@@ -983,7 +966,7 @@ export function TutorChat({
                                     action,
                                   )
                                 }
-                                className="rounded-full border border-line/70 bg-white px-3.5 py-2 text-xs font-medium text-muted shadow-sm transition hover:border-cobalt/25 hover:bg-cobalt/5 hover:text-cobalt"
+                                className="rounded-full border border-line/70 bg-white px-3.5 py-2 text-xs font-medium text-ink shadow-sm transition hover:border-cobalt/25 hover:bg-cobalt/5 hover:text-cobalt"
                               >
                                 {action}
                               </button>
@@ -997,39 +980,43 @@ export function TutorChat({
               },
             )}
 
-            {/* THINKING */}
+            {/* NOVA THINKING */}
 
             {sending &&
             (messages.length === 0 ||
               messages[messages.length - 1]
                 .role === "user") ? (
               <div className="flex items-start gap-3">
-                <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-cobalt/15 bg-cobalt/8">
+
+                <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-cobalt/15 bg-cobalt/10">
                   <Sparkles className="h-3.5 w-3.5 animate-pulse text-cobalt" />
                 </div>
 
                 <div className="flex items-center gap-3 rounded-[22px] rounded-bl-md border border-line/60 bg-white px-4 py-3.5 shadow-sm">
-                  <span className="text-sm text-muted">
+
+                  {/* DARK TEXT — NOT WHITE */}
+
+                  <span className="text-sm font-medium text-ink">
                     Nova is thinking
                   </span>
 
                   <span className="flex items-center gap-1">
                     <span
-                      className="h-1.5 w-1.5 animate-bounce rounded-full bg-cobalt/50"
+                      className="h-1.5 w-1.5 animate-bounce rounded-full bg-cobalt/60"
                       style={{
                         animationDelay: "0ms",
                       }}
                     />
 
                     <span
-                      className="h-1.5 w-1.5 animate-bounce rounded-full bg-cobalt/50"
+                      className="h-1.5 w-1.5 animate-bounce rounded-full bg-cobalt/60"
                       style={{
                         animationDelay: "150ms",
                       }}
                     />
 
                     <span
-                      className="h-1.5 w-1.5 animate-bounce rounded-full bg-cobalt/50"
+                      className="h-1.5 w-1.5 animate-bounce rounded-full bg-cobalt/60"
                       style={{
                         animationDelay: "300ms",
                       }}
@@ -1042,13 +1029,14 @@ export function TutorChat({
         </div>
       </div>
 
-      {/* ───────────────── ERROR ───────────────── */}
+      {/* ERROR */}
 
       {error ? (
         <div className="mx-auto w-full max-w-4xl px-4 sm:px-6">
           <div className="mb-2 flex items-start justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">
             <div className="flex min-w-0 items-start gap-2">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+
               <span className="leading-5">
                 {error.text}
               </span>
@@ -1072,12 +1060,12 @@ export function TutorChat({
         </div>
       ) : null}
 
-      {/* ───────────────── INPUT AREA ───────────────── */}
+      {/* COMPOSER */}
 
-      <div className="shrink-0 border-t border-line/60 bg-paper/90 px-3 py-3 backdrop-blur-xl sm:px-6 sm:py-4">
+      <div className="shrink-0 border-t border-line/60 bg-paper/95 px-3 py-3 backdrop-blur-xl sm:px-6 sm:py-4">
         <div className="mx-auto w-full max-w-4xl">
 
-          {/* IMAGE PREVIEWS */}
+          {/* SELECTED IMAGES */}
 
           {selectedImages.length > 0 ? (
             <div className="mb-2.5 flex flex-wrap gap-2">
@@ -1111,14 +1099,12 @@ export function TutorChat({
             </div>
           ) : null}
 
-          {/* COMPOSER */}
-
           <form
             onSubmit={submitForm}
-            className="relative flex items-end gap-1.5 rounded-[24px] border border-line/80 bg-white p-1.5 shadow-lg shadow-black/[0.04] transition-all duration-200 focus-within:border-cobalt/30 focus-within:shadow-xl focus-within:shadow-cobalt/[0.05]"
+            className="flex items-end gap-1.5 rounded-[24px] border border-line/80 bg-white p-1.5 shadow-lg shadow-black/[0.04] transition-all focus-within:border-cobalt/30 focus-within:shadow-xl focus-within:shadow-cobalt/[0.05]"
           >
 
-            {/* ATTACHMENT */}
+            {/* ATTACH */}
 
             <div className="relative">
               <button
@@ -1248,7 +1234,7 @@ export function TutorChat({
               }}
             />
 
-            {/* TEXT INPUT */}
+            {/* INPUT */}
 
             <textarea
               ref={inputRef}
@@ -1274,7 +1260,7 @@ export function TutorChat({
               className="max-h-[140px] min-h-[40px] flex-1 resize-none bg-transparent px-1 py-2 text-sm leading-6 text-ink outline-none placeholder:text-muted"
             />
 
-            {/* EXAM MODE */}
+            {/* EXAM */}
 
             <button
               type="button"
@@ -1300,7 +1286,7 @@ export function TutorChat({
               onClick={toggleVoice}
               className={
                 listening
-                  ? "flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] bg-red-50 text-red-600 transition"
+                  ? "flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] bg-red-50 text-red-600"
                   : "flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] text-muted transition hover:bg-line/40 hover:text-ink"
               }
               title={
@@ -1325,21 +1311,17 @@ export function TutorChat({
                 (!input.trim() &&
                   selectedImages.length === 0)
               }
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] bg-cobalt text-white shadow-sm shadow-cobalt/20 transition-all hover:bg-cobalt/90 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-35"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] bg-cobalt text-white shadow-sm shadow-cobalt/20 transition hover:bg-cobalt/90 disabled:cursor-not-allowed disabled:opacity-35"
               title="Send"
             >
               <Send className="h-[17px] w-[17px]" />
             </button>
           </form>
 
-          {/* FOOTER HINT */}
-
-          <div className="mt-2 flex items-center justify-center gap-2 text-[10px] text-muted/70">
+          <div className="mt-2 flex items-center justify-center gap-2 text-[10px] text-muted">
             <span>Nova can make mistakes.</span>
             <span>•</span>
-            <span>
-              Check important answers.
-            </span>
+            <span>Check important answers.</span>
           </div>
         </div>
       </div>
