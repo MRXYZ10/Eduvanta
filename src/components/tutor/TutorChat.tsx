@@ -408,13 +408,14 @@ export function TutorChat({ currentTopicId }: { currentTopicId?: string }) {
                   <div>
                     <div className="prose prose-sm max-w-none leading-6 prose-p:my-2 prose-headings:mb-2 prose-headings:mt-5 prose-headings:font-semibold prose-pre:overflow-x-auto prose-code:rounded-md prose-code:bg-ink/5 prose-code:px-1 prose-code:py-0.5">
                       <ReactMarkdown
-                        remarkPlugins={[remarkGfm, remarkMath]}
-                        rehypePlugins={[rehypeKatex]}
-                      >
-                        {messages[messages.length - 1]?.id === m.id && sending
-                        ? m.content
-                        : normalizeTutorMarkdown(m.content)}}
-                      </ReactMarkdown>
+                      remarkPlugins={[remarkGfm, remarkMath]}
+                      rehypePlugins={[rehypeKatex]}
+                      children={
+                      messages[messages.length - 1]?.id === m.id && sending
+                      ? m.content
+                      : normalizeTutorMarkdown(m.content)
+                      }
+                     />
                     </div>
 
                     {messages[messages.length - 1]?.id === m.id &&
