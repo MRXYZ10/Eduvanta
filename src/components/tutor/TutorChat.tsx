@@ -45,22 +45,27 @@ const MAX_IMAGE_SIZE = 20 * 1024 * 1024;
 const SUGGESTED_ACTIONS = [
   {
     label: "Explain a concept",
+    description: "Break down any topic simply",
     icon: BookOpen,
   },
   {
     label: "Teach me with an example",
+    description: "Learn it step by step",
     icon: Lightbulb,
   },
   {
     label: "Quiz me",
+    description: "Test what you know",
     icon: Brain,
   },
   {
     label: "Why was I wrong?",
+    description: "Understand your mistakes",
     icon: MessageCircle,
   },
   {
     label: "Make a study plan",
+    description: "Plan your preparation",
     icon: Sparkles,
   },
 ];
@@ -290,7 +295,7 @@ export function TutorChat({
     if (!SpeechRecognition) {
       setError({
         text:
-          "Voice input isn't supported here. If you're using the app, this usually means the app's WebView doesn't expose speech recognition — try Chrome in a regular browser tab instead.",
+          "Voice input isn't supported here. Try Chrome in a regular browser tab.",
         retryMessage: "",
       });
 
@@ -354,9 +359,9 @@ export function TutorChat({
 
         const messages: Record<string, string> = {
           "not-allowed":
-            "Microphone access was blocked. Allow microphone permission for this app and try again.",
+            "Microphone access was blocked. Allow microphone permission and try again.",
           "service-not-allowed":
-            "Microphone access was blocked. Allow microphone permission for this app and try again.",
+            "Microphone access was blocked. Allow microphone permission and try again.",
           "audio-capture":
             "No microphone was found on this device.",
           network:
@@ -395,14 +400,14 @@ export function TutorChat({
       }
     }
 
-    // Ask for the microphone explicitly first. On many in-app
-    // WebViews, SpeechRecognition silently does nothing unless
-    // getUserMedia has been granted in the same gesture.
     if (navigator.mediaDevices?.getUserMedia) {
       navigator.mediaDevices
         .getUserMedia({ audio: true })
         .then((stream) => {
-          stream.getTracks().forEach((track) => track.stop());
+          stream.getTracks().forEach((track) =>
+            track.stop(),
+          );
+
           startRecognition();
         })
         .catch((err: any) => {
@@ -412,7 +417,7 @@ export function TutorChat({
             text:
               name === "NotAllowedError" ||
               name === "PermissionDeniedError"
-                ? "Microphone access was denied. Allow microphone permission for this app and try again."
+                ? "Microphone access was denied. Allow microphone permission and try again."
                 : name === "NotFoundError"
                   ? "No microphone was found on this device."
                   : "Couldn't access the microphone on this device.",
@@ -703,33 +708,78 @@ export function TutorChat({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-paper">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-paper">
+
+      {/* ───────────────── HEADER ───────────────── */}
+
+      <header className="flex shrink-0 items-center justify-between border-b border-line/60 bg-paper/90 px-4 py-3 backdrop-blur-xl sm:px-6">
+        <div className="flex items-center gap-3">
+          <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cobalt to-cobalt/75 shadow-sm shadow-cobalt/20">
+            <Sparkles className="h-4 w-4 text-white" />
+
+            <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-paper bg-emerald-400" />
+          </div>
+
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-sm font-semibold text-ink">
+                Nova
+              </h1>
+
+              <span className="rounded-full bg-cobalt/8 px-2 py-0.5 text-[10px] font-medium text-cobalt">
+                AI Tutor
+              </span>
+            </div>
+
+            <p className="text-[11px] text-muted">
+              Your personal study assistant
+            </p>
+          </div>
+        </div>
+
+        <div className="hidden items-center gap-2 sm:flex">
+          <div className="flex items-center gap-1.5 rounded-full border border-line/70 bg-white/70 px-3 py-1.5 text-[11px] text-muted">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            Ready to help
+          </div>
+        </div>
+      </header>
+
+      {/* ───────────────── CHAT ───────────────── */}
+
       <div
         ref={scrollRef}
-        className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6"
+        className="min-h-0 flex-1 overflow-y-auto scroll-smooth"
       >
-        <div className="mx-auto w-full max-w-4xl">
+        <div className="mx-auto w-full max-w-4xl px-4 py-7 sm:px-6 sm:py-9">
+
+          {/* EMPTY STATE */}
+
           {messages.length === 0 && !sending ? (
-            <div className="flex min-h-[55vh] flex-col items-center justify-center text-center">
-              <div className="relative mb-6 flex h-16 w-16 items-center justify-center">
-                <div className="absolute inset-0 rounded-full bg-cobalt/20 blur-2xl" />
-                <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-cobalt/25 to-cobalt/5 ring-1 ring-cobalt/25">
-                  <Sparkles className="h-7 w-7 text-cobalt" />
+            <div className="flex min-h-[calc(100vh-260px)] flex-col items-center justify-center py-8 text-center">
+
+              <div className="relative mb-7">
+                <div className="absolute inset-0 scale-150 rounded-full bg-cobalt/10 blur-3xl" />
+
+                <div className="relative flex h-20 w-20 items-center justify-center rounded-[24px] border border-cobalt/15 bg-gradient-to-br from-cobalt/15 via-white to-cobalt/5 shadow-lg shadow-cobalt/10">
+                  <Sparkles className="h-8 w-8 text-cobalt" />
                 </div>
               </div>
 
-              <h2 className="text-2xl font-bold text-ink">
-                Hi, I&apos;m Nova 👋
-              </h2>
+              <div className="max-w-xl">
+                <h2 className="text-3xl font-bold tracking-tight text-ink sm:text-4xl">
+                  What are we learning today?
+                </h2>
 
-              <p className="mt-2 max-w-lg text-sm leading-6 text-muted">
-                Ask me anything about your
-                studies. You can also send a
-                photo of a question and I&apos;ll
-                help you solve it.
-              </p>
+                <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-muted sm:text-[15px]">
+                  Ask Nova anything about your studies.
+                  Explain concepts, solve questions,
+                  analyze photos, or prepare for your
+                  exams.
+                </p>
+              </div>
 
-              <div className="mt-7 grid w-full max-w-2xl grid-cols-1 gap-2.5 sm:grid-cols-2">
+              <div className="mt-8 grid w-full max-w-2xl grid-cols-1 gap-2.5 sm:grid-cols-2">
                 {SUGGESTED_ACTIONS.map(
                   (action) => {
                     const Icon = action.icon;
@@ -743,23 +793,37 @@ export function TutorChat({
                             action.label,
                           )
                         }
-                        className="group flex items-center gap-3 rounded-2xl border border-line/70 bg-white/70 px-4 py-3 text-left text-sm transition hover:-translate-y-0.5 hover:border-cobalt/30 hover:bg-white hover:shadow-md"
+                        className="group flex items-center gap-3 rounded-2xl border border-line/70 bg-white/80 p-3.5 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-cobalt/25 hover:bg-white hover:shadow-md"
                       >
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cobalt/10 text-cobalt transition group-hover:bg-cobalt/15">
-                          <Icon className="h-4 w-4" />
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cobalt/8 text-cobalt transition-colors group-hover:bg-cobalt/12">
+                          <Icon className="h-[18px] w-[18px]" />
                         </span>
-                        <span className="font-medium text-ink">
-                          {action.label}
+
+                        <span className="min-w-0">
+                          <span className="block text-sm font-semibold text-ink">
+                            {action.label}
+                          </span>
+
+                          <span className="mt-0.5 block text-xs text-muted">
+                            {action.description}
+                          </span>
                         </span>
                       </button>
                     );
                   },
                 )}
               </div>
+
+              <p className="mt-7 text-[11px] text-muted/70">
+                You can also upload a question or
+                speak to Nova.
+              </p>
             </div>
           ) : null}
 
-          <div className="space-y-6">
+          {/* MESSAGES */}
+
+          <div className="space-y-7">
             {messages.map(
               (message, index) => {
                 const isUser =
@@ -771,11 +835,14 @@ export function TutorChat({
                     className={
                       isUser
                         ? "flex justify-end"
-                        : "flex items-start gap-2.5"
+                        : "flex items-start gap-3"
                     }
                   >
+
+                    {/* NOVA AVATAR */}
+
                     {!isUser ? (
-                      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cobalt/10 ring-1 ring-cobalt/15">
+                      <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-cobalt/15 bg-cobalt/8">
                         <Sparkles className="h-3.5 w-3.5 text-cobalt" />
                       </div>
                     ) : null}
@@ -783,10 +850,13 @@ export function TutorChat({
                     <div
                       className={
                         isUser
-                          ? "max-w-[90%] sm:max-w-[78%]"
-                          : "w-full max-w-[90%] sm:max-w-[82%]"
+                          ? "max-w-[92%] sm:max-w-[78%]"
+                          : "min-w-0 w-full max-w-[92%] sm:max-w-[82%]"
                       }
                     >
+
+                      {/* IMAGE ATTACHMENTS */}
+
                       {isUser &&
                       message.imagePreviews &&
                       message.imagePreviews.length >
@@ -797,22 +867,28 @@ export function TutorChat({
                               image,
                               imageIndex,
                             ) => (
-                              <img
+                              <div
                                 key={`${message.id}-${imageIndex}`}
-                                src={image}
-                                alt={`Attached image ${imageIndex + 1}`}
-                                className="max-h-56 max-w-[240px] rounded-2xl border border-line object-cover shadow-sm"
-                              />
+                                className="overflow-hidden rounded-2xl border border-white/30 bg-white shadow-sm"
+                              >
+                                <img
+                                  src={image}
+                                  alt={`Attached image ${imageIndex + 1}`}
+                                  className="max-h-60 max-w-[260px] object-cover"
+                                />
+                              </div>
                             ),
                           )}
                         </div>
                       ) : null}
 
+                      {/* MESSAGE BUBBLE */}
+
                       <div
                         className={
                           isUser
-                            ? "rounded-2xl rounded-br-md bg-cobalt px-4 py-3 text-white shadow-sm shadow-cobalt/20"
-                            : "rounded-2xl rounded-bl-md border border-line/60 bg-white px-4 py-4 text-ink shadow-sm shadow-black/[0.02]"
+                            ? "rounded-[22px] rounded-br-md bg-cobalt px-4 py-3 text-white shadow-md shadow-cobalt/15"
+                            : "rounded-[22px] rounded-bl-md border border-line/60 bg-white px-5 py-4 text-ink shadow-sm"
                         }
                       >
                         {isUser ? (
@@ -820,7 +896,7 @@ export function TutorChat({
                             {message.content}
                           </p>
                         ) : (
-                          <div className="prose prose-sm max-w-none prose-headings:text-ink prose-p:text-ink prose-li:text-ink prose-strong:text-ink">
+                          <div className="prose prose-sm max-w-none prose-headings:mb-3 prose-headings:mt-5 prose-headings:font-semibold prose-headings:text-ink prose-p:my-2 prose-p:leading-7 prose-p:text-ink prose-li:text-ink prose-strong:text-ink prose-code:rounded prose-code:bg-cobalt/5 prose-code:px-1 prose-code:py-0.5 prose-code:text-cobalt">
                             <ReactMarkdown
                               remarkPlugins={[
                                 remarkGfm,
@@ -829,16 +905,19 @@ export function TutorChat({
                               rehypePlugins={[
                                 rehypeKatex,
                               ]}
-                              children={normalizeTutorMarkdown(
+                            >
+                              {normalizeTutorMarkdown(
                                 message.content,
                               )}
-                            />
+                            </ReactMarkdown>
                           </div>
                         )}
                       </div>
 
+                      {/* ASSISTANT ACTIONS */}
+
                       {!isUser ? (
-                        <div className="mt-1.5 flex items-center gap-0.5">
+                        <div className="mt-1.5 flex items-center gap-1">
                           <button
                             type="button"
                             onClick={() =>
@@ -847,14 +926,24 @@ export function TutorChat({
                                 message.content,
                               )
                             }
-                            className="rounded-lg p-2 text-muted transition hover:bg-line/40 hover:text-ink"
+                            className="flex h-8 items-center gap-1.5 rounded-lg px-2 text-[11px] text-muted transition hover:bg-white hover:text-ink"
                             title="Copy"
                           >
                             {copiedId ===
                             message.id ? (
-                              <Check className="h-3.5 w-3.5 text-signal" />
+                              <>
+                                <Check className="h-3.5 w-3.5 text-emerald-500" />
+                                <span className="hidden sm:block">
+                                  Copied
+                                </span>
+                              </>
                             ) : (
-                              <Copy className="h-3.5 w-3.5" />
+                              <>
+                                <Copy className="h-3.5 w-3.5" />
+                                <span className="hidden sm:block">
+                                  Copy
+                                </span>
+                              </>
                             )}
                           </button>
 
@@ -866,13 +955,18 @@ export function TutorChat({
                               )
                             }
                             disabled={sending}
-                            className="rounded-lg p-2 text-muted transition hover:bg-line/40 hover:text-ink disabled:opacity-40"
+                            className="flex h-8 items-center gap-1.5 rounded-lg px-2 text-[11px] text-muted transition hover:bg-white hover:text-ink disabled:opacity-40"
                             title="Regenerate"
                           >
                             <RotateCcw className="h-3.5 w-3.5" />
+                            <span className="hidden sm:block">
+                              Regenerate
+                            </span>
                           </button>
                         </div>
                       ) : null}
+
+                      {/* FOLLOW UPS */}
 
                       {!isUser &&
                       index ===
@@ -889,7 +983,7 @@ export function TutorChat({
                                     action,
                                   )
                                 }
-                                className="rounded-full border border-line/70 bg-white px-3 py-1.5 text-xs text-muted transition hover:border-cobalt/30 hover:bg-cobalt/5"
+                                className="rounded-full border border-line/70 bg-white px-3.5 py-2 text-xs font-medium text-muted shadow-sm transition hover:border-cobalt/25 hover:bg-cobalt/5 hover:text-cobalt"
                               >
                                 {action}
                               </button>
@@ -903,16 +997,18 @@ export function TutorChat({
               },
             )}
 
+            {/* THINKING */}
+
             {sending &&
             (messages.length === 0 ||
               messages[messages.length - 1]
                 .role === "user") ? (
-              <div className="flex items-start gap-2.5">
-                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cobalt/10 ring-1 ring-cobalt/15">
+              <div className="flex items-start gap-3">
+                <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-cobalt/15 bg-cobalt/8">
                   <Sparkles className="h-3.5 w-3.5 animate-pulse text-cobalt" />
                 </div>
 
-                <div className="flex items-center gap-2.5 rounded-2xl rounded-bl-md border border-line/60 bg-white px-4 py-3 shadow-sm shadow-black/[0.02]">
+                <div className="flex items-center gap-3 rounded-[22px] rounded-bl-md border border-line/60 bg-white px-4 py-3.5 shadow-sm">
                   <span className="text-sm text-muted">
                     Nova is thinking
                   </span>
@@ -920,15 +1016,23 @@ export function TutorChat({
                   <span className="flex items-center gap-1">
                     <span
                       className="h-1.5 w-1.5 animate-bounce rounded-full bg-cobalt/50"
-                      style={{ animationDelay: "0ms" }}
+                      style={{
+                        animationDelay: "0ms",
+                      }}
                     />
+
                     <span
                       className="h-1.5 w-1.5 animate-bounce rounded-full bg-cobalt/50"
-                      style={{ animationDelay: "150ms" }}
+                      style={{
+                        animationDelay: "150ms",
+                      }}
                     />
+
                     <span
                       className="h-1.5 w-1.5 animate-bounce rounded-full bg-cobalt/50"
-                      style={{ animationDelay: "300ms" }}
+                      style={{
+                        animationDelay: "300ms",
+                      }}
                     />
                   </span>
                 </div>
@@ -938,12 +1042,16 @@ export function TutorChat({
         </div>
       </div>
 
+      {/* ───────────────── ERROR ───────────────── */}
+
       {error ? (
         <div className="mx-auto w-full max-w-4xl px-4 sm:px-6">
-          <div className="mb-3 flex items-start justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            <div className="flex items-start gap-2">
+          <div className="mb-2 flex items-start justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">
+            <div className="flex min-w-0 items-start gap-2">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>{error.text}</span>
+              <span className="leading-5">
+                {error.text}
+              </span>
             </div>
 
             {error.retryMessage ? (
@@ -955,7 +1063,7 @@ export function TutorChat({
                     error.retryImages,
                   )
                 }
-                className="shrink-0 rounded-lg border border-red-300 bg-white px-2.5 py-1 text-xs font-medium text-red-700 transition hover:bg-red-100"
+                className="shrink-0 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100"
               >
                 Retry
               </button>
@@ -964,83 +1072,135 @@ export function TutorChat({
         </div>
       ) : null}
 
-      <div className="shrink-0 border-t border-line/60 bg-paper/80 px-4 py-3 backdrop-blur-xl sm:px-6">
-        <div className="mx-auto w-full max-w-4xl">
-          {selectedImages.length > 0 ? (
-            <div className="mb-2 flex flex-wrap gap-2">
-              {selectedImages.map((image, index) => (
-                <div
-                  key={`${image.file.name}-${index}`}
-                  className="group relative"
-                >
-                  <img
-                    src={image.preview}
-                    alt={`Selected ${index + 1}`}
-                    className="h-16 w-16 rounded-xl border border-line object-cover shadow-sm"
-                  />
+      {/* ───────────────── INPUT AREA ───────────────── */}
 
-                  <button
-                    type="button"
-                    onClick={() => removeImage(index)}
-                    className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-ink text-white shadow-md transition group-hover:scale-110"
-                    aria-label="Remove image"
+      <div className="shrink-0 border-t border-line/60 bg-paper/90 px-3 py-3 backdrop-blur-xl sm:px-6 sm:py-4">
+        <div className="mx-auto w-full max-w-4xl">
+
+          {/* IMAGE PREVIEWS */}
+
+          {selectedImages.length > 0 ? (
+            <div className="mb-2.5 flex flex-wrap gap-2">
+              {selectedImages.map(
+                (image, index) => (
+                  <div
+                    key={`${image.file.name}-${index}`}
+                    className="group relative"
                   >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
+                    <div className="overflow-hidden rounded-xl border border-line bg-white shadow-sm">
+                      <img
+                        src={image.preview}
+                        alt={`Selected ${index + 1}`}
+                        className="h-16 w-16 object-cover"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        removeImage(index)
+                      }
+                      className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-ink text-white shadow-md transition hover:scale-110"
+                      aria-label="Remove image"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ),
+              )}
             </div>
           ) : null}
 
+          {/* COMPOSER */}
+
           <form
             onSubmit={submitForm}
-            className="flex items-end gap-1.5 rounded-full border border-line/70 bg-white px-3 py-2 shadow-md shadow-black/[0.03] transition focus-within:border-cobalt/40"
+            className="relative flex items-end gap-1.5 rounded-[24px] border border-line/80 bg-white p-1.5 shadow-lg shadow-black/[0.04] transition-all duration-200 focus-within:border-cobalt/30 focus-within:shadow-xl focus-within:shadow-cobalt/[0.05]"
           >
+
+            {/* ATTACHMENT */}
+
             <div className="relative">
               <button
                 type="button"
                 onClick={() =>
-                  setShowAttachMenu((current) => !current)
+                  setShowAttachMenu(
+                    (current) => !current,
+                  )
                 }
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-muted transition hover:bg-line/30 hover:text-ink"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] text-muted transition hover:bg-line/40 hover:text-ink"
                 title="Attach"
               >
-                <Paperclip className="h-4 w-4" />
+                <Paperclip className="h-[18px] w-[18px]" />
               </button>
 
               {showAttachMenu ? (
-                <div className="absolute bottom-12 left-0 z-10 w-48 overflow-hidden rounded-2xl border border-line/70 bg-white p-1.5 shadow-lg shadow-black/[0.06]">
+                <div className="absolute bottom-12 left-0 z-20 w-52 overflow-hidden rounded-2xl border border-line/70 bg-white p-1.5 shadow-xl shadow-black/10">
+
                   <button
                     type="button"
-                    onClick={() => galleryInputRef.current?.click()}
-                    className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-sm text-ink transition hover:bg-cobalt/5"
+                    onClick={() =>
+                      galleryInputRef.current?.click()
+                    }
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-ink transition hover:bg-cobalt/5"
                   >
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-cobalt/10 text-cobalt">
-                      <ImageIcon className="h-3.5 w-3.5" />
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-cobalt/10 text-cobalt">
+                      <ImageIcon className="h-4 w-4" />
                     </span>
-                    Photo library
+
+                    <span>
+                      <span className="block font-medium">
+                        Photo library
+                      </span>
+
+                      <span className="text-[10px] text-muted">
+                        Choose from your device
+                      </span>
+                    </span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => cameraInputRef.current?.click()}
-                    className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-sm text-ink transition hover:bg-cobalt/5"
+                    onClick={() =>
+                      cameraInputRef.current?.click()
+                    }
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-ink transition hover:bg-cobalt/5"
                   >
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-cobalt/10 text-cobalt">
-                      <Camera className="h-3.5 w-3.5" />
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-cobalt/10 text-cobalt">
+                      <Camera className="h-4 w-4" />
                     </span>
-                    Take photo
+
+                    <span>
+                      <span className="block font-medium">
+                        Take photo
+                      </span>
+
+                      <span className="text-[10px] text-muted">
+                        Use your camera
+                      </span>
+                    </span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-sm text-ink transition hover:bg-cobalt/5"
+                    onClick={() =>
+                      fileInputRef.current?.click()
+                    }
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-ink transition hover:bg-cobalt/5"
                   >
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-cobalt/10 text-cobalt">
-                      <Paperclip className="h-3.5 w-3.5" />
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-cobalt/10 text-cobalt">
+                      <Paperclip className="h-4 w-4" />
                     </span>
-                    Upload file
+
+                    <span>
+                      <span className="block font-medium">
+                        Upload image
+                      </span>
+
+                      <span className="text-[10px] text-muted">
+                        Up to 20 MB
+                      </span>
+                    </span>
                   </button>
                 </div>
               ) : null}
@@ -1053,7 +1213,9 @@ export function TutorChat({
               multiple
               hidden
               onChange={(event) => {
-                void selectImages(event.target.files);
+                void selectImages(
+                  event.target.files,
+                );
                 event.target.value = "";
               }}
             />
@@ -1065,7 +1227,9 @@ export function TutorChat({
               capture="environment"
               hidden
               onChange={(event) => {
-                void selectImages(event.target.files);
+                void selectImages(
+                  event.target.files,
+                );
                 event.target.value = "";
               }}
             />
@@ -1077,68 +1241,106 @@ export function TutorChat({
               multiple
               hidden
               onChange={(event) => {
-                void selectImages(event.target.files);
+                void selectImages(
+                  event.target.files,
+                );
                 event.target.value = "";
               }}
             />
 
+            {/* TEXT INPUT */}
+
             <textarea
               ref={inputRef}
               value={input}
-              onChange={(event) => setInput(event.target.value)}
+              onChange={(event) =>
+                setInput(event.target.value)
+              }
               onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
+                if (
+                  event.key === "Enter" &&
+                  !event.shiftKey
+                ) {
                   event.preventDefault();
                   void sendMessage(input);
                 }
               }}
               rows={1}
-              placeholder="Ask Nova anything..."
-              className="max-h-[140px] min-h-[36px] flex-1 resize-none bg-transparent px-1 py-1.5 text-sm text-ink outline-none placeholder:text-muted"
+              placeholder={
+                listening
+                  ? "Listening..."
+                  : "Ask Nova anything..."
+              }
+              className="max-h-[140px] min-h-[40px] flex-1 resize-none bg-transparent px-1 py-2 text-sm leading-6 text-ink outline-none placeholder:text-muted"
             />
 
-            <button
-              type="button"
-              onClick={toggleVoice}
-              className={
-                listening
-                  ? "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600"
-                  : "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-muted transition hover:bg-line/30 hover:text-ink"
-              }
-              title={listening ? "Stop listening" : "Voice input"}
-            >
-              {listening ? (
-                <MicOff className="h-4 w-4" />
-              ) : (
-                <Mic className="h-4 w-4" />
-              )}
-            </button>
+            {/* EXAM MODE */}
 
             <button
               type="button"
-              onClick={() => setExamMode((current) => !current)}
+              onClick={() =>
+                setExamMode(
+                  (current) => !current,
+                )
+              }
               className={
                 examMode
-                  ? "hidden shrink-0 items-center justify-center rounded-xl bg-cobalt/10 px-2.5 text-xs font-medium text-cobalt sm:flex"
-                  : "hidden shrink-0 items-center justify-center rounded-xl px-2.5 text-xs font-medium text-muted transition hover:bg-line/30 sm:flex"
+                  ? "hidden h-9 shrink-0 items-center justify-center rounded-xl bg-cobalt/10 px-3 text-xs font-semibold text-cobalt sm:flex"
+                  : "hidden h-9 shrink-0 items-center justify-center rounded-xl px-3 text-xs font-medium text-muted transition hover:bg-line/30 hover:text-ink sm:flex"
               }
               title="Toggle exam mode"
             >
               Exam
             </button>
 
+            {/* VOICE */}
+
+            <button
+              type="button"
+              onClick={toggleVoice}
+              className={
+                listening
+                  ? "flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] bg-red-50 text-red-600 transition"
+                  : "flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] text-muted transition hover:bg-line/40 hover:text-ink"
+              }
+              title={
+                listening
+                  ? "Stop listening"
+                  : "Voice input"
+              }
+            >
+              {listening ? (
+                <MicOff className="h-[18px] w-[18px]" />
+              ) : (
+                <Mic className="h-[18px] w-[18px]" />
+              )}
+            </button>
+
+            {/* SEND */}
+
             <button
               type="submit"
               disabled={
                 sending ||
-                (!input.trim() && selectedImages.length === 0)
+                (!input.trim() &&
+                  selectedImages.length === 0)
               }
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-cobalt text-white transition hover:bg-cobalt/90 disabled:opacity-40"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] bg-cobalt text-white shadow-sm shadow-cobalt/20 transition-all hover:bg-cobalt/90 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-35"
               title="Send"
             >
-              <Send className="h-4 w-4" />
+              <Send className="h-[17px] w-[17px]" />
             </button>
           </form>
+
+          {/* FOOTER HINT */}
+
+          <div className="mt-2 flex items-center justify-center gap-2 text-[10px] text-muted/70">
+            <span>Nova can make mistakes.</span>
+            <span>•</span>
+            <span>
+              Check important answers.
+            </span>
+          </div>
         </div>
       </div>
     </div>
