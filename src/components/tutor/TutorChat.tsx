@@ -17,6 +17,7 @@ import {
   Camera,
   Image as ImageIcon,
   X,
+  AlertCircle,
 } from "lucide-react";
 
 import ReactMarkdown from "react-markdown";
@@ -630,8 +631,11 @@ export function TutorChat({
         <div className="mx-auto w-full max-w-4xl">
           {messages.length === 0 && !sending ? (
             <div className="flex min-h-[55vh] flex-col items-center justify-center text-center">
-              <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-cobalt/10">
-                <Sparkles className="h-8 w-8 text-cobalt" />
+              <div className="relative mb-6 flex h-16 w-16 items-center justify-center">
+                <div className="absolute inset-0 rounded-full bg-cobalt/20 blur-2xl" />
+                <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-cobalt/25 to-cobalt/5 ring-1 ring-cobalt/25">
+                  <Sparkles className="h-7 w-7 text-cobalt" />
+                </div>
               </div>
 
               <h2 className="text-2xl font-bold text-ink">
@@ -645,7 +649,7 @@ export function TutorChat({
                 help you solve it.
               </p>
 
-              <div className="mt-7 grid w-full max-w-2xl grid-cols-1 gap-2 sm:grid-cols-2">
+              <div className="mt-7 grid w-full max-w-2xl grid-cols-1 gap-2.5 sm:grid-cols-2">
                 {SUGGESTED_ACTIONS.map(
                   (action) => {
                     const Icon = action.icon;
@@ -659,10 +663,12 @@ export function TutorChat({
                             action.label,
                           )
                         }
-                        className="flex items-center gap-3 rounded-xl border border-line/70 bg-white/70 px-4 py-3 text-left text-sm transition hover:border-cobalt/30 hover:bg-cobalt/5"
+                        className="group flex items-center gap-3 rounded-2xl border border-line/70 bg-white/70 px-4 py-3 text-left text-sm transition hover:-translate-y-0.5 hover:border-cobalt/30 hover:bg-white hover:shadow-md"
                       >
-                        <Icon className="h-4 w-4 text-cobalt" />
-                        <span>
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cobalt/10 text-cobalt transition group-hover:bg-cobalt/15">
+                          <Icon className="h-4 w-4" />
+                        </span>
+                        <span className="font-medium text-ink">
                           {action.label}
                         </span>
                       </button>
@@ -685,9 +691,15 @@ export function TutorChat({
                     className={
                       isUser
                         ? "flex justify-end"
-                        : "flex justify-start"
+                        : "flex items-start gap-2.5"
                     }
                   >
+                    {!isUser ? (
+                      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cobalt/10 ring-1 ring-cobalt/15">
+                        <Sparkles className="h-3.5 w-3.5 text-cobalt" />
+                      </div>
+                    ) : null}
+
                     <div
                       className={
                         isUser
@@ -709,7 +721,7 @@ export function TutorChat({
                                 key={`${message.id}-${imageIndex}`}
                                 src={image}
                                 alt={`Attached image ${imageIndex + 1}`}
-                                className="max-h-56 max-w-[240px] rounded-xl border border-line object-cover"
+                                className="max-h-56 max-w-[240px] rounded-2xl border border-line object-cover shadow-sm"
                               />
                             ),
                           )}
@@ -719,8 +731,8 @@ export function TutorChat({
                       <div
                         className={
                           isUser
-                            ? "rounded-2xl rounded-br-md bg-cobalt px-4 py-3 text-white shadow-sm"
-                            : "rounded-2xl rounded-bl-md border border-line/60 bg-white px-4 py-4 text-ink shadow-sm"
+                            ? "rounded-2xl rounded-br-md bg-cobalt px-4 py-3 text-white shadow-sm shadow-cobalt/20"
+                            : "rounded-2xl rounded-bl-md border border-line/60 bg-white px-4 py-4 text-ink shadow-sm shadow-black/[0.02]"
                         }
                       >
                         {isUser ? (
@@ -746,7 +758,7 @@ export function TutorChat({
                       </div>
 
                       {!isUser ? (
-                        <div className="mt-2 flex items-center gap-1">
+                        <div className="mt-1.5 flex items-center gap-0.5">
                           <button
                             type="button"
                             onClick={() =>
@@ -755,14 +767,14 @@ export function TutorChat({
                                 message.content,
                               )
                             }
-                            className="rounded-lg p-2 text-muted transition hover:bg-line/30 hover:text-ink"
+                            className="rounded-lg p-2 text-muted transition hover:bg-line/40 hover:text-ink"
                             title="Copy"
                           >
                             {copiedId ===
                             message.id ? (
-                              <Check className="h-4 w-4" />
+                              <Check className="h-3.5 w-3.5 text-signal" />
                             ) : (
-                              <Copy className="h-4 w-4" />
+                              <Copy className="h-3.5 w-3.5" />
                             )}
                           </button>
 
@@ -774,10 +786,10 @@ export function TutorChat({
                               )
                             }
                             disabled={sending}
-                            className="rounded-lg p-2 text-muted transition hover:bg-line/30 hover:text-ink disabled:opacity-40"
+                            className="rounded-lg p-2 text-muted transition hover:bg-line/40 hover:text-ink disabled:opacity-40"
                             title="Regenerate"
                           >
-                            <RotateCcw className="h-4 w-4" />
+                            <RotateCcw className="h-3.5 w-3.5" />
                           </button>
                         </div>
                       ) : null}
@@ -810,14 +822,43 @@ export function TutorChat({
                 );
               },
             )}
+
+            {sending &&
+            (messages.length === 0 ||
+              messages[messages.length - 1]
+                .role === "user") ? (
+              <div className="flex items-start gap-2.5">
+                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cobalt/10 ring-1 ring-cobalt/15">
+                  <Sparkles className="h-3.5 w-3.5 text-cobalt" />
+                </div>
+
+                <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-md border border-line/60 bg-white px-4 py-3.5 shadow-sm shadow-black/[0.02]">
+                  <span
+                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-cobalt/50"
+                    style={{ animationDelay: "0ms" }}
+                  />
+                  <span
+                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-cobalt/50"
+                    style={{ animationDelay: "120ms" }}
+                  />
+                  <span
+                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-cobalt/50"
+                    style={{ animationDelay: "240ms" }}
+                  />
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
 
       {error ? (
         <div className="mx-auto w-full max-w-4xl px-4 sm:px-6">
-          <div className="mb-3 flex items-start justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            <span>{error.text}</span>
+          <div className="mb-3 flex items-start justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{error.text}</span>
+            </div>
 
             {error.retryMessage ? (
               <button
@@ -844,18 +885,18 @@ export function TutorChat({
               {selectedImages.map((image, index) => (
                 <div
                   key={`${image.file.name}-${index}`}
-                  className="relative"
+                  className="group relative"
                 >
                   <img
                     src={image.preview}
                     alt={`Selected ${index + 1}`}
-                    className="h-16 w-16 rounded-lg border border-line object-cover"
+                    className="h-16 w-16 rounded-xl border border-line object-cover shadow-sm"
                   />
 
                   <button
                     type="button"
                     onClick={() => removeImage(index)}
-                    className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-ink text-white shadow"
+                    className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-ink text-white shadow-md transition group-hover:scale-110"
                     aria-label="Remove image"
                   >
                     <X className="h-3 w-3" />
@@ -867,7 +908,7 @@ export function TutorChat({
 
           <form
             onSubmit={submitForm}
-            className="flex items-end gap-2 rounded-2xl border border-line/70 bg-white px-2 py-2 shadow-sm"
+            className="flex items-end gap-1.5 rounded-full border border-line/70 bg-white px-3 py-2 shadow-md shadow-black/[0.03] transition focus-within:border-cobalt/40"
           >
             <div className="relative">
               <button
@@ -882,31 +923,37 @@ export function TutorChat({
               </button>
 
               {showAttachMenu ? (
-                <div className="absolute bottom-11 left-0 z-10 w-44 overflow-hidden rounded-xl border border-line/70 bg-white shadow-lg">
+                <div className="absolute bottom-12 left-0 z-10 w-48 overflow-hidden rounded-2xl border border-line/70 bg-white p-1.5 shadow-lg shadow-black/[0.06]">
                   <button
                     type="button"
                     onClick={() => galleryInputRef.current?.click()}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-ink transition hover:bg-line/20"
+                    className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-sm text-ink transition hover:bg-cobalt/5"
                   >
-                    <ImageIcon className="h-4 w-4 text-muted" />
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-cobalt/10 text-cobalt">
+                      <ImageIcon className="h-3.5 w-3.5" />
+                    </span>
                     Photo library
                   </button>
 
                   <button
                     type="button"
                     onClick={() => cameraInputRef.current?.click()}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-ink transition hover:bg-line/20"
+                    className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-sm text-ink transition hover:bg-cobalt/5"
                   >
-                    <Camera className="h-4 w-4 text-muted" />
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-cobalt/10 text-cobalt">
+                      <Camera className="h-3.5 w-3.5" />
+                    </span>
                     Take photo
                   </button>
 
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-ink transition hover:bg-line/20"
+                    className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-sm text-ink transition hover:bg-cobalt/5"
                   >
-                    <Paperclip className="h-4 w-4 text-muted" />
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-cobalt/10 text-cobalt">
+                      <Paperclip className="h-3.5 w-3.5" />
+                    </span>
                     Upload file
                   </button>
                 </div>
@@ -1000,7 +1047,7 @@ export function TutorChat({
                 sending ||
                 (!input.trim() && selectedImages.length === 0)
               }
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-cobalt text-white transition hover:bg-cobalt/90 disabled:opacity-40"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-cobalt text-white transition hover:bg-cobalt/90 disabled:opacity-40"
               title="Send"
             >
               <Send className="h-4 w-4" />
