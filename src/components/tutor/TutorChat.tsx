@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useEffect,
-  useRef,
-  useState,
-  type FormEvent,
-} from "react";
-
+import { useEffect, useRef, useState } from "react";
 import {
   Sparkles,
   Copy,
@@ -44,45 +38,6 @@ interface SelectedImage {
   preview: string;
 }
 
-interface SpeechRecognitionResultLike {
-  isFinal: boolean;
-  0: {
-    transcript: string;
-  };
-}
-
-interface SpeechRecognitionEventLike {
-  resultIndex: number;
-  results: ArrayLike<SpeechRecognitionResultLike>;
-}
-
-interface SpeechRecognitionLike {
-  lang: string;
-  continuous: boolean;
-  interimResults: boolean;
-  start: () => void;
-  stop: () => void;
-  abort: () => void;
-  onresult:
-    | ((event: SpeechRecognitionEventLike) => void)
-    | null;
-  onerror:
-    | ((event: { error: string }) => void)
-    | null;
-  onend: (() => void) | null;
-}
-
-interface SpeechRecognitionConstructor {
-  new (): SpeechRecognitionLike;
-}
-
-declare global {
-  interface Window {
-    SpeechRecognition?: SpeechRecognitionConstructor;
-    webkitSpeechRecognition?: SpeechRecognitionConstructor;
-  }
-}
-
 const MAX_IMAGES = 3;
 const MAX_IMAGE_SIZE = 20 * 1024 * 1024;
 
@@ -115,7 +70,7 @@ const FOLLOW_UP_ACTIONS = [
   "Quiz me on this",
 ];
 
-function readFileAsDataUrl(file: File): Promise<string> {
+function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 
@@ -123,12 +78,12 @@ function readFileAsDataUrl(file: File): Promise<string> {
       if (typeof reader.result === "string") {
         resolve(reader.result);
       } else {
-        reject(new Error("Could not preview image."));
+        reject(new Error("Could not preview image"));
       }
     };
 
     reader.onerror = () => {
-      reject(new Error("Could not read image."));
+      reject(new Error("Could not read image"));
     };
 
     reader.readAsDataURL(file);
@@ -140,28 +95,21 @@ export function TutorChat({
 }: {
   currentTopicId?: string;
 }) {
-  const [messages, setMessages] = useState<ChatMessage[]>(
-    [],
-  );
-
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [conversationId, setConversationId] = useState<
     string | undefined
-  >();
+  >(undefined);
 
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [examMode, setExamMode] = useState(false);
-  const [copiedId, setCopiedId] = useState<string | null>(
-    null,
-  );
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const [selectedImages, setSelectedImages] = useState<
     SelectedImage[]
   >([]);
 
-  const [showAttachMenu, setShowAttachMenu] =
-    useState(false);
-
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [listening, setListening] = useState(false);
 
   const [error, setError] = useState<{
@@ -173,20 +121,16 @@ export function TutorChat({
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const galleryInputRef =
-    useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const cameraInputRef =
-    useRef<HTMLInputElement>(null);
-
-  const fileInputRef =
-    useRef<HTMLInputElement>(null);
-
-  const recognitionRef =
-    useRef<SpeechRecognitionLike | null>(null);
+  const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({
+    if (!scrollRef.current) return;
+
+    scrollRef.current.scrollTo({
       top: scrollRef.current.scrollHeight,
       behavior: "smooth",
     });
@@ -198,16 +142,17 @@ export function TutorChat({
     if (!textarea) return;
 
     textarea.style.height = "auto";
-
-    textarea.style.height = `${Math.min(
-      textarea.scrollHeight,
-      140,
-    )}px`;
+    textarea.style.height =
+      `${Math.min(textarea.scrollHeight, 140)}px`;
   }, [input]);
 
   useEffect(() => {
     return () => {
-      recognitionRef.current?.abort();
+      try {
+        recognitionRef.current?.abort();
+      } catch {
+        // Ignore cleanup errors.
+      }
     };
   }, []);
 
@@ -217,18 +162,17 @@ export function TutorChat({
   ) {
     try {
       await navigator.clipboard.writeText(content);
-
       setCopiedId(id);
 
       window.setTimeout(() => {
         setCopiedId(null);
       }, 1500);
     } catch {
-      // Clipboard unavailable.
+      // Ignore clipboard errors.
     }
   }
 
-  function getPreviousUserMessage(index: number) {
+  function findPreviousUserMessage(index: number) {
     for (let i = index - 1; i >= 0; i -= 1) {
       if (messages[i]?.role === "user") {
         return messages[i];
@@ -241,47 +185,40 @@ export function TutorChat({
   async function regenerate(index: number) {
     if (sending) return;
 
-    const userMessage =
-      getPreviousUserMessage(index);
+    const previousUser =
+      findPreviousUserMessage(index);
 
-    if (!userMessage) return;
+    if (!previousUser) return;
 
-    setMessages((previous) =>
-      previous.slice(0, index),
+    setMessages((current) =>
+      current.slice(0, index),
     );
 
-    await sendMessage(
-      userMessage.content,
-      undefined,
-    );
+    await sendMessage(previousUser.content);
   }
 
-  async function handleImageSelection(
-    fileList: FileList | null,
-  ) {
-    if (!fileList || fileList.length === 0) {
-      return;
-    }
+  async function selectImages(files: FileList | null) {
+    if (!files || files.length === 0) return;
 
     setShowAttachMenu(false);
 
-    const incomingFiles = Array.from(fileList);
+    const incoming = Array.from(files);
 
     if (
-      selectedImages.length + incomingFiles.length >
+      selectedImages.length + incoming.length >
       MAX_IMAGES
     ) {
       setError({
-        text: `You can attach a maximum of ${MAX_IMAGES} images.`,
+        text: `Maximum ${MAX_IMAGES} images can be attached.`,
         retryMessage: "",
       });
 
       return;
     }
 
-    const newImages: SelectedImage[] = [];
+    const valid: SelectedImage[] = [];
 
-    for (const file of incomingFiles) {
+    for (const file of incoming) {
       if (!file.type.startsWith("image/")) {
         setError({
           text: "Only image files are supported.",
@@ -301,10 +238,9 @@ export function TutorChat({
       }
 
       try {
-        const preview =
-          await readFileAsDataUrl(file);
+        const preview = await fileToDataUrl(file);
 
-        newImages.push({
+        valid.push({
           file,
           preview,
         });
@@ -316,10 +252,10 @@ export function TutorChat({
       }
     }
 
-    if (newImages.length > 0) {
-      setSelectedImages((previous) => [
-        ...previous,
-        ...newImages,
+    if (valid.length > 0) {
+      setSelectedImages((current) => [
+        ...current,
+        ...valid,
       ]);
 
       setError(null);
@@ -327,21 +263,28 @@ export function TutorChat({
   }
 
   function removeImage(index: number) {
-    setSelectedImages((previous) =>
-      previous.filter((_, i) => i !== index),
+    setSelectedImages((current) =>
+      current.filter((_, i) => i !== index),
     );
   }
 
-  function toggleVoiceInput() {
+  function toggleVoice() {
     if (listening) {
-      recognitionRef.current?.stop();
+      try {
+        recognitionRef.current?.stop();
+      } catch {
+        // Ignore.
+      }
+
       setListening(false);
       return;
     }
 
+    const browserWindow = window as any;
+
     const SpeechRecognition =
-      window.SpeechRecognition ||
-      window.webkitSpeechRecognition;
+      browserWindow.SpeechRecognition ||
+      browserWindow.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
       setError({
@@ -359,7 +302,7 @@ export function TutorChat({
     recognition.continuous = false;
     recognition.interimResults = true;
 
-    recognition.onresult = (event) => {
+    recognition.onresult = (event: any) => {
       let transcript = "";
 
       for (
@@ -368,15 +311,15 @@ export function TutorChat({
         i += 1
       ) {
         transcript +=
-          event.results[i]?.[0]?.transcript ?? "";
+          event.results[i][0]?.transcript || "";
       }
 
       if (transcript) {
-        setInput((previous) => {
+        setInput((current) => {
           const separator =
-            previous.trim().length > 0 ? " " : "";
+            current.trim().length > 0 ? " " : "";
 
-          return `${previous}${separator}${transcript}`;
+          return current + separator + transcript;
         });
       }
     };
@@ -413,33 +356,33 @@ export function TutorChat({
         ? imagesOverride
         : selectedImages;
 
-    const trimmedMessage = messageText.trim();
+    const cleanMessage = messageText.trim();
 
-    if (!trimmedMessage && images.length === 0) {
+    if (!cleanMessage && images.length === 0) {
       return;
     }
 
     const finalMessage =
-      trimmedMessage ||
+      cleanMessage ||
       "Please analyze this image and help me understand it.";
 
     setSending(true);
     setError(null);
     setShowAttachMenu(false);
 
-    const previews = images.map(
+    const imagePreviews = images.map(
       (image) => image.preview,
     );
 
-    setMessages((previous) => [
-      ...previous,
+    setMessages((current) => [
+      ...current,
       {
         id: crypto.randomUUID(),
         role: "user",
         content: finalMessage,
         imagePreviews:
-          previews.length > 0
-            ? previews
+          imagePreviews.length > 0
+            ? imagePreviews
             : undefined,
       },
     ]);
@@ -448,8 +391,8 @@ export function TutorChat({
     setSelectedImages([]);
 
     try {
-      let requestBody: BodyInit;
-      let requestHeaders: HeadersInit | undefined;
+      let body: BodyInit;
+      let headers: HeadersInit | undefined;
 
       if (images.length > 0) {
         const formData = new FormData();
@@ -483,13 +426,13 @@ export function TutorChat({
           );
         }
 
-        requestBody = formData;
+        body = formData;
       } else {
-        requestHeaders = {
+        headers = {
           "Content-Type": "application/json",
         };
 
-        requestBody = JSON.stringify({
+        body = JSON.stringify({
           conversationId,
           message: finalMessage,
           currentTopicId,
@@ -501,18 +444,16 @@ export function TutorChat({
         "/api/tutor/chat",
         {
           method: "POST",
-          headers: requestHeaders,
-          body: requestBody,
+          headers,
+          body,
         },
       );
 
       if (!response.ok || !response.body) {
-        const responseText =
-          await response.text();
+        const text = await response.text();
 
         throw new Error(
-          responseText ||
-            "Nova could not process the request.",
+          text || "Nova could not answer.",
         );
       }
 
@@ -523,42 +464,42 @@ export function TutorChat({
 
       let buffer = "";
       let assistantContent = "";
-      let assistantMessageId =
-        crypto.randomUUID();
+      let assistantId = crypto.randomUUID();
 
-      function updateAssistantMessage(
+      function updateAssistant(
         content: string,
       ) {
-        setMessages((previous) => {
-          const exists = previous.some(
+        setMessages((current) => {
+          const exists = current.some(
             (message) =>
-              message.id === assistantMessageId,
+              message.id === assistantId,
           );
 
           if (!exists) {
             return [
-              ...previous,
+              ...current,
               {
-                id: assistantMessageId,
+                id: assistantId,
                 role: "assistant",
                 content,
               },
             ];
           }
 
-          return previous.map((message) =>
-            message.id ===
-            assistantMessageId
-              ? {
-                  ...message,
-                  content,
-                }
-              : message,
-          );
+          return current.map((message) => {
+            if (message.id !== assistantId) {
+              return message;
+            }
+
+            return {
+              ...message,
+              content,
+            };
+          });
         });
       }
 
-      function processSseLine(line: string) {
+      function processLine(line: string) {
         const trimmed = line.trim();
 
         if (!trimmed.startsWith("data:")) {
@@ -569,19 +510,11 @@ export function TutorChat({
           .slice(5)
           .trim();
 
-        if (!payload) return;
-
-        if (payload === "[DONE]") {
+        if (!payload || payload === "[DONE]") {
           return;
         }
 
-        let data: {
-          type?: string;
-          messageId?: string;
-          conversationId?: string;
-          content?: string;
-          message?: string;
-        };
+        let data: any;
 
         try {
           data = JSON.parse(payload);
@@ -591,21 +524,16 @@ export function TutorChat({
 
         if (data.type === "start") {
           if (data.messageId) {
-            assistantMessageId =
-              data.messageId;
+            assistantId = data.messageId;
           }
 
           return;
         }
 
         if (data.type === "chunk") {
-          const chunk = data.content ?? "";
+          assistantContent += data.content || "";
 
-          assistantContent += chunk;
-
-          updateAssistantMessage(
-            assistantContent,
-          );
+          updateAssistant(assistantContent);
 
           return;
         }
@@ -620,9 +548,7 @@ export function TutorChat({
           if (data.content) {
             assistantContent = data.content;
 
-            updateAssistantMessage(
-              assistantContent,
-            );
+            updateAssistant(assistantContent);
           }
 
           return;
@@ -637,35 +563,37 @@ export function TutorChat({
       }
 
       while (true) {
-        const { done, value } =
-          await reader.read();
+        const result = await reader.read();
 
-        if (done) break;
+        if (result.done) break;
 
-        buffer += decoder.decode(value, {
-          stream: true,
-        });
+        buffer += decoder.decode(
+          result.value,
+          {
+            stream: true,
+          },
+        );
 
         const lines = buffer.split("\n");
 
-        buffer = lines.pop() ?? "";
+        buffer = lines.pop() || "";
 
         for (const line of lines) {
-          processSseLine(line);
+          processLine(line);
         }
       }
 
       if (buffer.trim()) {
-        processSseLine(buffer);
+        processLine(buffer);
       }
     } catch (err) {
-      const errorMessage =
+      const message =
         err instanceof Error
           ? err.message
           : "Something went wrong.";
 
       setError({
-        text: errorMessage,
+        text: message,
         retryMessage: finalMessage,
         retryImages:
           images.length > 0
@@ -677,11 +605,10 @@ export function TutorChat({
     }
   }
 
-  function handleSubmit(
-    event: FormEvent<HTMLFormElement>,
+  function submitForm(
+    event: React.FormEvent<HTMLFormElement>,
   ) {
     event.preventDefault();
-
     void sendMessage(input);
   }
 
@@ -701,46 +628,50 @@ export function TutorChat({
         className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6"
       >
         <div className="mx-auto w-full max-w-4xl">
-          {messages.length === 0 &&
-            !sending && (
-              <div className="flex min-h-[55vh] flex-col items-center justify-center text-center">
-                <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-cobalt/10">
-                  <Sparkles className="h-8 w-8 text-cobalt" />
-                </div>
+          {messages.length === 0 && !sending ? (
+            <div className="flex min-h-[55vh] flex-col items-center justify-center text-center">
+              <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-cobalt/10">
+                <Sparkles className="h-8 w-8 text-cobalt" />
+              </div>
 
-                <h2 className="text-2xl font-bold text-ink">
-                  Hi, I&apos;m Nova 👋
-                </h2>
+              <h2 className="text-2xl font-bold text-ink">
+                Hi, I&apos;m Nova 👋
+              </h2>
 
-                <p className="mt-2 max-w-lg text-sm leading-6 text-muted">
-                  Ask me anything about your
-                  studies. You can also send a
-                  photo of a question and I&apos;ll
-                  help you solve it.
-                </p>
+              <p className="mt-2 max-w-lg text-sm leading-6 text-muted">
+                Ask me anything about your
+                studies. You can also send a
+                photo of a question and I&apos;ll
+                help you solve it.
+              </p>
 
-                <div className="mt-7 grid w-full max-w-2xl grid-cols-1 gap-2 sm:grid-cols-2">
-                  {SUGGESTED_ACTIONS.map(
-                    ({
-                      label,
-                      icon: Icon,
-                    }) => (
+              <div className="mt-7 grid w-full max-w-2xl grid-cols-1 gap-2 sm:grid-cols-2">
+                {SUGGESTED_ACTIONS.map(
+                  (action) => {
+                    const Icon = action.icon;
+
+                    return (
                       <button
-                        key={label}
+                        key={action.label}
                         type="button"
                         onClick={() =>
-                          useSuggestion(label)
+                          useSuggestion(
+                            action.label,
+                          )
                         }
                         className="flex items-center gap-3 rounded-xl border border-line/70 bg-white/70 px-4 py-3 text-left text-sm transition hover:border-cobalt/30 hover:bg-cobalt/5"
                       >
                         <Icon className="h-4 w-4 text-cobalt" />
-                        <span>{label}</span>
+                        <span>
+                          {action.label}
+                        </span>
                       </button>
-                    ),
-                  )}
-                </div>
+                    );
+                  },
+                )}
               </div>
-            )}
+            </div>
+          ) : null}
 
           <div className="space-y-6">
             {messages.map(
@@ -765,28 +696,25 @@ export function TutorChat({
                       }
                     >
                       {isUser &&
-                        message.imagePreviews &&
-                        message.imagePreviews
-                          .length > 0 && (
-                          <div className="mb-2 flex flex-wrap justify-end gap-2">
-                            {message.imagePreviews.map(
-                              (
-                                image,
-                                imageIndex,
-                              ) => (
-                                <img
-                                  key={`${message.id}-${imageIndex}`}
-                                  src={image}
-                                  alt={`Attached image ${
-                                    imageIndex +
-                                    1
-                                  }`}
-                                  className="max-h-56 max-w-[240px] rounded-xl border border-line object-cover"
-                                />
-                              ),
-                            )}
-                          </div>
-                        )}
+                      message.imagePreviews &&
+                      message.imagePreviews.length >
+                        0 ? (
+                        <div className="mb-2 flex flex-wrap justify-end gap-2">
+                          {message.imagePreviews.map(
+                            (
+                              image,
+                              imageIndex,
+                            ) => (
+                              <img
+                                key={`${message.id}-${imageIndex}`}
+                                src={image}
+                                alt={`Attached image ${imageIndex + 1}`}
+                                className="max-h-56 max-w-[240px] rounded-xl border border-line object-cover"
+                              />
+                            ),
+                          )}
+                        </div>
+                      ) : null}
 
                       <div
                         className={
@@ -809,16 +737,15 @@ export function TutorChat({
                               rehypePlugins={[
                                 rehypeKatex,
                               ]}
-                            >
-                              {normalizeTutorMarkdown(
+                              children={normalizeTutorMarkdown(
                                 message.content,
                               )}
-                            </ReactMarkdown>
+                            />
                           </div>
                         )}
                       </div>
 
-                      {!isUser && (
+                      {!isUser ? (
                         <div className="mt-2 flex items-center gap-1">
                           <button
                             type="button"
@@ -843,4 +770,31 @@ export function TutorChat({
                             type="button"
                             onClick={() =>
                               void regenerate(
-                      
+                                index,
+                              )
+                            }
+                            disabled={sending}
+                            className="rounded-lg p-2 text-muted transition hover:bg-line/30 hover:text-ink disabled:opacity-40"
+                            title="Regenerate"
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : null}
+
+                      {!isUser &&
+                      index ===
+                        messages.length - 1 &&
+                      !sending ? (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {FOLLOW_UP_ACTIONS.map(
+                            (action) => (
+                              <button
+                                key={action}
+                                type="button"
+                                onClick={() =>
+                                  useFollowUp(
+                                    action,
+                                  )
+                                }
+                                className="rounded-full border border-line/70 bg-white px-3 py-1.5 text-xs text-muted transition hover:border-cobalt/30 hover:bg-cobal
