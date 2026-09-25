@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Sparkles,
   Copy,
@@ -11,18 +11,70 @@ import {
   Brain,
   BookOpen,
   MessageCircle,
+  Mic,
+  MicOff,
+  Paperclip,
+  Camera,
+  Image as ImageIcon,
+  X,
 } from "lucide-react";
+
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import remarkGfm from "remark-gfm";
 import rehypeKatex from "rehype-katex";
+
 import { normalizeTutorMarkdown } from "./normalizeTutorMarkdown";
 
 interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
+  imagePreviews?: string[];
 }
+
+interface SelectedImage {
+  file: File;
+  preview: string;
+}
+
+interface SpeechRecognitionResultLike {
+  isFinal: boolean;
+  0: {
+    transcript: string;
+  };
+}
+
+interface SpeechRecognitionEventLike {
+  resultIndex: number;
+  results: ArrayLike<SpeechRecognitionResultLike>;
+}
+
+interface SpeechRecognitionLike {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((event: { error: string }) => void) | null;
+  onend: (() => void) | null;
+}
+
+interface SpeechRecognitionConstructor {
+  new (): SpeechRecognitionLike;
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  }
+}
+
+const MAX_IMAGES = 3;
+const MAX_IMAGE_SIZE = 20 * 1024 * 1024;
 
 const SUGGESTED_ACTIONS = [
   { label: "Explain a concept", icon: BookOpen },
@@ -38,17 +90,63 @@ const FOLLOW_UP_ACTIONS = [
   "Quiz me on this",
 ];
 
-export function TutorChat({ currentTopicId }: { currentTopicId?: string }) {
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+      } else {
+        reject(new Error("Could not preview image"));
+      }
+    };
+
+    reader.onerror = () => {
+      reject(new Error("Could not read image"));
+    };
+
+    reader.readAsDataURL(file);
+  });
+}
+
+export function TutorChat({
+  currentTopicId,
+}: {
+  currentTopicId?: string;
+}) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [conversationId, setConversationId] = useState<string | undefined>();
+  const [conversationId, setConversationId] = useState<
+    string | undefined
+  >();
+
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [examMode, setExamMode] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [error, setError] = useState<{ text: string; retryMessage: string } | null>(null);
+
+  const [selectedImages, setSelectedImages] = useState<
+    SelectedImage[]
+  >([]);
+
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const [listening, setListening] = useState(false);
+
+  const [error, setError] = useState<{
+    text: string;
+    retryMessage: string;
+    retryImages?: SelectedImage[];
+  } | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const recognitionRef =
+    useRef<SpeechRecognitionLike | null>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -59,570 +157,634 @@ export function TutorChat({ currentTopicId }: { currentTopicId?: string }) {
 
   useEffect(() => {
     const textarea = inputRef.current;
+
     if (!textarea) return;
 
     textarea.style.height = "auto";
-    textarea.style.height = `${Math.min(textarea.scrollHeight, 140)}px`;
+    textarea.style.height = `${Math.min(
+      textarea.scrollHeight,
+      140,
+    )}px`;
   }, [input]);
+
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.abort();
+    };
+  }, []);
 
   async function copyMessage(id: string, content: string) {
     try {
       await navigator.clipboard.writeText(content);
+
       setCopiedId(id);
 
       setTimeout(() => {
         setCopiedId(null);
       }, 1500);
     } catch {
-      // Clipboard may be unavailable.
+      // Ignore clipboard errors.
     }
   }
 
   function getLastUserMessage(index: number) {
-    for (let i = index - 1; i >= 0; i--) {
+    for (let i = index - 1; i >= 0; i -= 1) {
       if (messages[i]?.role === "user") {
-        return messages[i]?.content ?? "";
+        return messages[i];
       }
     }
 
-    return "";
+    return null;
   }
 
   async function regenerate(index: number) {
-    const lastUserMessage = getLastUserMessage(index);
+    const userMessage = getLastUserMessage(index);
 
-    if (!lastUserMessage || sending) return;
+    if (!userMessage || sending) return;
 
-    setMessages((prev) => prev.slice(0, Math.max(0, index - 1)));
-    await send(lastUserMessage);
+    setMessages((prev) => prev.slice(0, index));
+
+    await send(
+      userMessage.content,
+      userMessage.imagePreviews?.length
+        ? undefined
+        : [],
+    );
   }
 
-  async function send(text: string) {
-    if (!text.trim() || sending) return;
+  async function handleImageSelection(
+    files: FileList | null,
+  ) {
+    if (!files || files.length === 0) return;
 
-    setError(null);
-    setInput("");
+    setShowAttachMenu(false);
 
-    const userMessage: ChatMessage = {
-      id: `local-user-${Date.now()}`,
-      role: "user",
-      content: text.trim(),
+    const incomingFiles = Array.from(files);
+
+    if (
+      selectedImages.length + incomingFiles.length >
+      MAX_IMAGES
+    ) {
+      setError({
+        text: `You can attach up to ${MAX_IMAGES} images at once.`,
+        retryMessage: "",
+      });
+
+      return;
+    }
+
+    const validImages: SelectedImage[] = [];
+
+    for (const file of incomingFiles) {
+      if (!file.type.startsWith("image/")) {
+        setError({
+          text: "Only image files are supported right now.",
+          retryMessage: "",
+        });
+
+        continue;
+      }
+
+      if (file.size > MAX_IMAGE_SIZE) {
+        setError({
+          text: `${file.name} is larger than 20 MB.`,
+          retryMessage: "",
+        });
+
+        continue;
+      }
+
+      try {
+        const preview = await fileToDataUrl(file);
+
+        validImages.push({
+          file,
+          preview,
+        });
+      } catch {
+        setError({
+          text: `Could not read ${file.name}.`,
+          retryMessage: "",
+        });
+      }
+    }
+
+    if (validImages.length > 0) {
+      setSelectedImages((prev) => [
+        ...prev,
+        ...validImages,
+      ]);
+    }
+  }
+
+  function removeImage(index: number) {
+    setSelectedImages((prev) =>
+      prev.filter((_, i) => i !== index),
+    );
+  }
+
+  function toggleVoiceInput() {
+    if (listening) {
+      recognitionRef.current?.stop();
+      setListening(false);
+      return;
+    }
+
+    const SpeechRecognition =
+      window.SpeechRecognition ||
+      window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      setError({
+        text:
+          "Voice input is not supported in this browser. Try Chrome or Edge.",
+        retryMessage: "",
+      });
+
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+
+    recognition.lang = "en-IN";
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    recognition.onresult = (event) => {
+      let transcript = "";
+
+      for (
+        let i = event.resultIndex;
+        i < event.results.length;
+        i += 1
+      ) {
+        transcript += event.results[i]?.[0]?.transcript ?? "";
+      }
+
+      if (transcript) {
+        setInput((prev) => {
+          const separator =
+            prev.trim().length > 0 ? " " : "";
+
+          return `${prev}${separator}${transcript}`;
+        });
+      }
     };
 
-    const assistantId = `stream-${Date.now()}`;
+    recognition.onerror = () => {
+      setListening(false);
+    };
+
+    recognition.onend = () => {
+      setListening(false);
+      recognitionRef.current = null;
+    };
+
+    recognitionRef.current = recognition;
+
+    try {
+      recognition.start();
+      setListening(true);
+    } catch {
+      setListening(false);
+    }
+  }
+
+  async function send(
+    text: string,
+    imagesOverride?: SelectedImage[],
+  ) {
+    if (sending) return;
+
+    const images =
+      imagesOverride !== undefined
+        ? imagesOverride
+        : selectedImages;
+
+    const trimmedText = text.trim();
+
+    if (!trimmedText && images.length === 0) {
+      return;
+    }
+
+    const finalMessage =
+      trimmedText ||
+      "Please analyze this image and help me understand it.";
+
+    setSending(true);
+    setError(null);
+    setShowAttachMenu(false);
+
+    const imagePreviews = images.map(
+      (image) => image.preview,
+    );
 
     setMessages((prev) => [
       ...prev,
-      userMessage,
       {
-        id: assistantId,
-        role: "assistant",
-        content: "",
+        id: crypto.randomUUID(),
+        role: "user",
+        content: finalMessage,
+        imagePreviews:
+          imagePreviews.length > 0
+            ? imagePreviews
+            : undefined,
       },
     ]);
 
-    setSending(true);
+    setInput("");
+    setSelectedImages([]);
 
     try {
-      const res = await fetch("/api/tutor/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          conversationId,
-          message: text.trim(),
-          currentTopicId,
-          examMode,
-        }),
-      });
+      let body: BodyInit;
+      let headers: HeadersInit | undefined;
 
-      if (!res.ok) {
-        let body: { error?: string; conversationId?: string } = {};
+      if (images.length > 0) {
+        const formData = new FormData();
 
-        try {
-          body = await res.json();
-        } catch {
-          // Ignore invalid error JSON.
+        if (conversationId) {
+          formData.append(
+            "conversationId",
+            conversationId,
+          );
         }
 
-        setConversationId(body.conversationId ?? conversationId);
+        formData.append("message", finalMessage);
 
-        setMessages((prev) =>
-          prev.filter((m) => m.id !== assistantId),
+        if (currentTopicId) {
+          formData.append(
+            "currentTopicId",
+            currentTopicId,
+          );
+        }
+
+        formData.append(
+          "examMode",
+          String(examMode),
         );
 
-        setError({
-          text: body.error ?? "Nova couldn't connect right now.",
-          retryMessage: text,
-        });
+        for (const image of images) {
+          formData.append(
+            "images",
+            image.file,
+            image.file.name,
+          );
+        }
 
-        return;
+        body = formData;
+      } else {
+        headers = {
+          "Content-Type": "application/json",
+        };
+
+        body = JSON.stringify({
+          conversationId,
+          message: finalMessage,
+          currentTopicId,
+          examMode,
+        });
       }
 
-      if (!res.body) {
-        throw new Error("No response stream received.");
+      const res = await fetch("/api/tutor/chat", {
+        method: "POST",
+        headers,
+        body,
+      });
+
+      if (!res.ok || !res.body) {
+        const errorText = await res.text();
+
+        throw new Error(
+          errorText || "Something went wrong.",
+        );
       }
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
+
       let buffer = "";
+      let assistantMessageId = "";
+      let assistantContent = "";
 
-      while (true) {
-        const { done, value } = await reader.read();
+      const appendAssistantMessage = (
+        content: string,
+      ) => {
+        setMessages((prev) => {
+          const existingIndex = prev.findIndex(
+            (message) =>
+              message.id === assistantMessageId,
+          );
 
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-
-        const events = buffer.split("\n\n");
-        buffer = events.pop() ?? "";
-
-        for (const event of events) {
-          const dataLine = event
-            .split("\n")
-            .find((line) => line.startsWith("data:"));
-
-          if (!dataLine) continue;
-
-          const jsonText = dataLine.slice(5).trim();
-
-          if (!jsonText) continue;
-
-          let data: {
-            type?: string;
-            conversationId?: string;
-            content?: string;
-            error?: string;
-          };
-
-          try {
-            data = JSON.parse(jsonText);
-          } catch {
-            continue;
+          if (existingIndex === -1) {
+            return [
+              ...prev,
+              {
+                id: assistantMessageId,
+                role: "assistant",
+                content,
+              },
+            ];
           }
 
-          if (data.type === "start" && data.conversationId) {
-            setConversationId(data.conversationId);
+          return prev.map((message) =>
+            message.id === assistantMessageId
+              ? {
+                  ...message,
+                  content,
+                }
+              : message,
+          );
+        });
+      };
+
+      const processLine = (line: string) => {
+        const trimmed = line.trim();
+
+        if (!trimmed.startsWith("data:")) {
+          return;
+        }
+
+        const payload = trimmed
+          .slice(5)
+          .trim();
+
+        if (!payload) return;
+
+        try {
+          const data = JSON.parse(payload);
+
+          if (data.type === "start") {
+            assistantMessageId =
+              data.messageId ||
+              crypto.randomUUID();
+
+            return;
           }
 
-          if (data.type === "chunk" && data.content) {
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantId
-                  ? { ...m, content: m.content + data.content }
-                  : m,
-              ),
+          if (data.type === "chunk") {
+            assistantContent +=
+              data.content ?? "";
+
+            appendAssistantMessage(
+              assistantContent,
             );
+
+            return;
           }
 
           if (data.type === "done") {
-            if (data.conversationId) {
-              setConversationId(data.conversationId);
-            }
-
             if (data.content) {
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantId
-                    ? { ...m, content: data.content! }
-                    : m,
-                ),
+              assistantContent = data.content;
+
+              appendAssistantMessage(
+                assistantContent,
               );
             }
+
+            if (data.conversationId) {
+              setConversationId(
+                data.conversationId,
+              );
+            }
+
+            return;
           }
 
           if (data.type === "error") {
-            setMessages((prev) =>
-              prev.filter((m) => m.id !== assistantId),
+            throw new Error(
+              data.message ||
+                "Nova could not answer.",
             );
-
-            setError({
-              text: data.error ?? "Nova couldn't connect right now.",
-              retryMessage: text,
-            });
+          }
+        } catch (err) {
+          if (
+            err instanceof Error &&
+            err.message !== "Unexpected end of JSON input"
+          ) {
+            throw err;
           }
         }
-      }
+      };
 
-      buffer += decoder.decode();
+      while (true) {
+        const { done, value } =
+          await reader.read();
+
+        if (done) break;
+
+        buffer += decoder.decode(value, {
+          stream: true,
+        });
+
+        const lines = buffer.split("\n");
+
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          processLine(line);
+        }
+      }
 
       if (buffer.trim()) {
-        const dataLine = buffer
-          .split("\n")
-          .find((line) => line.startsWith("data:"));
-
-        if (dataLine) {
-          try {
-            const data = JSON.parse(dataLine.slice(5).trim());
-
-            if (data.type === "chunk" && data.content) {
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantId
-                    ? { ...m, content: m.content + data.content }
-                    : m,
-                ),
-              );
-            }
-          } catch {
-            // Ignore incomplete final event.
-          }
-        }
+        processLine(buffer);
       }
-    } catch {
-      setMessages((prev) =>
-        prev.filter((m) => m.id !== assistantId),
-      );
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Something went wrong.";
 
       setError({
-        text: "Nova couldn't connect right now.",
-        retryMessage: text,
+        text: message,
+        retryMessage: finalMessage,
+        retryImages:
+          images.length > 0 ? images : undefined,
       });
     } finally {
       setSending(false);
     }
   }
 
+  function handleSubmit(
+    event: React.FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+
+    void send(input);
+  }
+
+  function handleQuickAction(label: string) {
+    setInput(label);
+    inputRef.current?.focus();
+  }
+
+  function handleFollowUp(label: string) {
+    void send(label);
+  }
+
   return (
-    <div className="nova-shell flex h-[calc(100dvh-7rem)] min-h-[520px] flex-col overflow-hidden rounded-[30px] border border-line/60 bg-paper shadow-2xl md:h-[calc(100dvh-6rem)]">
-
-      {/* Header */}
-      <header className="nova-header flex shrink-0 items-center justify-between border-b border-line/60 bg-paper/70 px-4 py-3 backdrop-blur-xl md:px-6">
-        <div className="flex items-center gap-3">
-          <div className="nova-avatar relative flex h-11 w-11 items-center justify-center rounded-2xl bg-signal-soft ring-1 ring-signal/20">
-            <Sparkles className="h-5 w-5 text-signal" strokeWidth={1.7} />
-            <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-paper bg-signal" />
-          </div>
-
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="bg-gradient-to-r from-ink via-cobalt to-signal bg-clip-text text-sm font-bold tracking-tight text-transparent">Nova</h1>
-              <span className="rounded-full bg-signal-soft px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-signal">
-                AI Tutor
-              </span>
-            </div>
-            <p className="text-[11px] text-ink/45">
-              Your personal study companion
-            </p>
-          </div>
-        </div>
-
-        <div className="hidden items-center gap-1.5 rounded-full border border-line/70 bg-paper px-2.5 py-1 text-[10px] text-ink/45 sm:flex">
-          <span className="h-1.5 w-1.5 rounded-full bg-signal" />
-          Online
-        </div>
-      </header>
-
-      {/* Messages */}
+    <div className="flex h-full min-h-0 flex-col bg-paper">
+      {/* CHAT AREA */}
       <div
         ref={scrollRef}
-        className="nova-messages flex-1 overflow-y-auto px-3 py-5 sm:px-5 md:px-8"
+        className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6"
       >
-        <div className="mx-auto flex max-w-4xl flex-col gap-5">
-
-          {/* Empty state */}
-          {messages.length === 0 && (
-            <div className="nova-empty flex min-h-[55vh] flex-col items-center justify-center text-center">
-              <div className="relative mb-5">
-                <div className="nova-orb flex h-20 w-20 items-center justify-center rounded-[26px] bg-signal-soft shadow-lg ring-1 ring-signal/20">
-                  <Sparkles className="h-8 w-8 text-signal" strokeWidth={1.5} />
-                </div>
-                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-paper bg-cobalt">
-                  <span className="h-1.5 w-1.5 rounded-full bg-white" />
-                </span>
+        <div className="mx-auto w-full max-w-4xl">
+          {/* EMPTY STATE */}
+          {messages.length === 0 && !sending && (
+            <div className="flex min-h-[55vh] flex-col items-center justify-center text-center">
+              <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-cobalt/10">
+                <Sparkles className="h-8 w-8 text-cobalt" />
               </div>
 
-              <h2 className="nova-title text-xl font-bold tracking-[-0.03em] text-ink sm:text-3xl">
-                What are we learning today?
+              <h2 className="text-2xl font-bold text-ink">
+                Hi, I&apos;m Nova 👋
               </h2>
 
-              <p className="mt-2 max-w-md text-sm leading-6 text-ink/50">
-                Ask Nova to explain a concept, solve a problem, quiz you,
-                or help you plan your study session.
+              <p className="mt-2 max-w-lg text-sm leading-6 text-muted">
+                Ask me anything about your studies.
+                You can also send a photo of a question
+                and I&apos;ll help you solve it.
               </p>
 
               <div className="mt-7 grid w-full max-w-2xl grid-cols-1 gap-2 sm:grid-cols-2">
-                {SUGGESTED_ACTIONS.map((action) => {
-                  const Icon = action.icon;
-
-                  return (
+                {SUGGESTED_ACTIONS.map(
+                  ({ label, icon: Icon }) => (
                     <button
-                      key={action.label}
+                      key={label}
                       type="button"
-                      onClick={() => send(action.label)}
-                      className="nova-suggestion group flex items-center gap-3 rounded-2xl border border-line/65 bg-paper/75 px-4 py-3.5 text-left transition-all duration-200 hover:-translate-y-1 hover:border-cobalt/30 hover:bg-cobalt/5 hover:shadow-lg"
+                      onClick={() =>
+                        handleQuickAction(label)
+                      }
+                      className="flex items-center gap-3 rounded-xl border border-line/70 bg-white/70 px-4 py-3 text-left text-sm transition hover:border-cobalt/30 hover:bg-cobalt/5"
                     >
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-ink/5 transition-colors group-hover:bg-cobalt/10">
-                        <Icon className="h-4 w-4 text-ink/55 group-hover:text-cobalt" />
-                      </span>
-
-                      <span className="text-xs font-medium text-ink/70 group-hover:text-ink">
-                        {action.label}
-                      </span>
+                      <Icon className="h-4 w-4 text-cobalt" />
+                      <span>{label}</span>
                     </button>
-                  );
-                })}
+                  ),
+                )}
               </div>
             </div>
           )}
 
-          {/* Messages */}
-          {messages.map((m, index) => (
-            <div
-              key={m.id}
-              className={`flex w-full gap-2.5 ${
-                m.role === "user" ? "justify-end" : "justify-start"
-              }`}
-            >
-              {m.role === "assistant" && (
-                <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-signal-soft ring-1 ring-signal/10">
-                  <Sparkles
-                    className="h-4 w-4 text-signal"
-                    strokeWidth={1.8}
-                  />
-                </div>
-              )}
+          {/* MESSAGES */}
+          <div className="space-y-6">
+            {messages.map((message, index) => {
+              const isUser =
+                message.role === "user";
 
-              <div
-                className={`nova-message max-w-[92%] sm:max-w-[82%] ${
-                  m.role === "user"
-                    ? "rounded-2xl rounded-br-md bg-cobalt px-4 py-3 text-white shadow-sm"
-                    : "rounded-2xl rounded-bl-md border border-line/60 bg-paper px-4 py-3 text-ink shadow-sm"
-                }`}
-              >
-                {m.role === "assistant" && !m.content ? (
-                  <div className="flex items-center gap-2 py-1">
-                    <div className="flex gap-1">
-                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-signal [animation-delay:-300ms]" />
-                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-signal [animation-delay:-150ms]" />
-                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-signal" />
-                    </div>
-                    <span className="text-xs text-ink/45">
-                      Nova is thinking
-                    </span>
-                  </div>
-                ) : m.role === "user" ? (
-                  <p className="whitespace-pre-wrap text-sm leading-6">
-                    {m.content}
-                  </p>
-                ) : (
-                  <div>
-                    <div className="prose prose-sm max-w-none leading-6 prose-p:my-2 prose-headings:mb-2 prose-headings:mt-5 prose-headings:font-semibold prose-pre:overflow-x-auto prose-code:rounded-md prose-code:bg-ink/5 prose-code:px-1 prose-code:py-0.5">
-                      <ReactMarkdown
-                      remarkPlugins={[remarkGfm, remarkMath]}
-                      rehypePlugins={[rehypeKatex]}
-                      children={
-                      messages[messages.length - 1]?.id === m.id && sending
-                      ? m.content
-                      : normalizeTutorMarkdown(m.content)
-                      }
-                     />
-                    </div>
-
-                    {messages[messages.length - 1]?.id === m.id &&
-                      !sending && (
-                        <div className="mt-4 flex flex-wrap gap-1.5 border-t border-line/50 pt-3">
-                          {FOLLOW_UP_ACTIONS.map((action) => (
-                            <button
-                              key={action}
-                              type="button"
-                              onClick={() => {
-                                if (action === "Explain simpler") {
-                                  send(
-                                    "Explain your previous answer in simpler words with an easy example.",
-                                  );
-                                } else if (action === "Give another example") {
-                                  send(
-                                    "Give me another simple example related to your previous answer.",
-                                  );
-                                } else {
-                                  send(
-                                    "Quiz me on the concept you just explained.",
-                                  );
-                                }
-                              }}
-                              className="rounded-full border border-line bg-paper px-3 py-1.5 text-[11px] font-medium text-ink/55 transition-all hover:border-cobalt/30 hover:bg-cobalt/5 hover:text-cobalt"
-                            >
-                              {action}
-                            </button>
-                          ))}
+              return (
+                <div
+                  key={message.id}
+                  className={
+                    isUser
+                      ? "flex justify-end"
+                      : "flex justify-start"
+                  }
+                >
+                  <div
+                    className={
+                      isUser
+                        ? "max-w-[90%] sm:max-w-[78%]"
+                        : "w-full max-w-[90%] sm:max-w-[82%]"
+                    }
+                  >
+                    {/* USER IMAGES */}
+                    {isUser &&
+                      message.imagePreviews &&
+                      message.imagePreviews.length >
+                        0 && (
+                        <div className="mb-2 flex flex-wrap justify-end gap-2">
+                          {message.imagePreviews.map(
+                            (src, imageIndex) => (
+                              <img
+                                key={`${message.id}-${imageIndex}`}
+                                src={src}
+                                alt={`Attached image ${imageIndex + 1}`}
+                                className="max-h-56 max-w-[240px] rounded-xl border border-line object-cover"
+                              />
+                            ),
+                          )}
                         </div>
                       )}
 
-                    <div className="mt-2 flex items-center gap-0.5">
-                      <button
-                        type="button"
-                        onClick={() => copyMessage(m.id, m.content)}
-                        className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] text-ink/40 transition hover:bg-ink/5 hover:text-ink/70"
-                        title="Copy answer"
-                      >
-                        {copiedId === m.id ? (
-                          <>
-                            <Check className="h-3 w-3 text-signal" />
-                            Copied
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="h-3 w-3" />
-                            Copy
-                          </>
-                        )}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => regenerate(index)}
-                        disabled={sending}
-                        className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] text-ink/40 transition hover:bg-ink/5 hover:text-ink/70 disabled:opacity-40"
-                        title="Regenerate answer"
-                      >
-                        <RotateCcw className="h-3 w-3" />
-                        Regenerate
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const lastUserMessage = getLastUserMessage(index);
-
-                          if (lastUserMessage) {
-                            send(
-                              `Explain this in simpler words with a very easy example: ${lastUserMessage}`,
-                            );
-                          }
-                        }}
-                        disabled={sending}
-                        className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] text-ink/40 transition hover:bg-ink/5 hover:text-ink/70 disabled:opacity-40"
-                        title="Explain simpler"
-                      >
-                        <Lightbulb className="h-3 w-3" />
-                        Explain
-                      </button>
+                    <div
+                      className={
+                        isUser
+                          ? "rounded-2xl rounded-br-md bg-cobalt px-4 py-3 text-white shadow-sm"
+                          : "rounded-2xl rounded-bl-md border border-line/60 bg-white px-4 py-4 text-ink shadow-sm"
+                      }
+                    >
+                      {isUser ? (
+                        <p className="whitespace-pre-wrap text-sm leading-6">
+                          {message.content}
+                        </p>
+                      ) : (
+                        <div className="prose prose-sm max-w-none prose-headings:text-ink prose-p:text-ink prose-li:text-ink prose-strong:text-ink">
+                          <ReactMarkdown
+                            remarkPlugins={[
+                              remarkGfm,
+                              remarkMath,
+                            ]}
+                            rehypePlugins={[
+                              rehypeKatex,
+                            ]}
+                            children={
+                              messages[
+                                messages.length - 1
+                              ]?.id === message.id &&
+                              sending
+                                ? message.content
+                                : normalizeTutorMarkdown(
+                                    message.content,
+                                  )
+                            }
+                          />
+                        </div>
+                      )}
                     </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
 
-          {/* Error */}
-          {error && (
-            <div className="flex justify-start gap-2.5">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-mastery-attention/10">
-                <Sparkles className="h-4 w-4 text-mastery-attention" />
-              </div>
+                    {/* MESSAGE ACTIONS */}
+                    {!isUser && (
+                      <div className="mt-2 flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            copyMessage(
+                              message.id,
+                              message.content,
+                            )
+                          }
+                          className="rounded-lg p-2 text-muted transition hover:bg-line/30 hover:text-ink"
+                          title="Copy"
+                        >
+                          {copiedId ===
+                          message.id ? (
+                            <Check className="h-4 w-4" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
+                        </button>
 
-              <div className="rounded-2xl rounded-bl-md border border-mastery-attention/20 bg-mastery-attention/5 px-4 py-3">
-                <p className="text-sm text-ink/75">{error.text}</p>
-                <button
-                  type="button"
-                  onClick={() => send(error.retryMessage)}
-                  className="mt-2 text-xs font-semibold text-cobalt underline underline-offset-2"
-                >
-                  Try again
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void regenerate(index)
+                          }
+                          disabled={sending}
+                          className="rounded-lg p-2 text-muted transition hover:bg-line/30 hover:text-ink disabled:opacity-40"
+                          title="Regenerate"
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
 
-      {/* Composer */}
-      <div className="nova-composer shrink-0 border-t border-line/60 bg-paper/70 px-3 pb-3 pt-3 backdrop-blur-xl sm:px-5">
-        <div className="mx-auto max-w-4xl">
-          {messages.length > 0 && !sending && (
-            <div className="mb-2 flex items-center gap-2 overflow-x-auto pb-1">
-              <span className="shrink-0 text-[10px] font-medium uppercase tracking-wider text-ink/35">
-                Quick ask
-              </span>
-
-              {["Explain simpler", "Give an example", "Quiz me"].map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() => send(item)}
-                  className="shrink-0 rounded-full border border-line bg-paper px-2.5 py-1 text-[10px] text-ink/50 transition hover:border-cobalt/30 hover:text-cobalt"
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-          )}
-
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              send(input);
-            }}
-            className="nova-input relative rounded-[22px] border border-line/70 bg-paper/80 shadow-lg transition-all focus-within:border-cobalt/40 focus-within:ring-4 focus-within:ring-cobalt/5"
-          >
-            <div className="flex items-center justify-between border-b border-line px-4 py-2">
-              <button
-                type="button"
-                onClick={() => setExamMode((prev) => !prev)}
-                className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-medium transition ${
-                  examMode
-                    ? "bg-cobalt/10 text-cobalt"
-                    : "text-ink/45 hover:bg-ink/5 hover:text-ink/70"
-                }`}
-              >
-                <span>{examMode ? "🎯" : "📝"}</span>
-                {examMode ? "Exam Mode ON" : "Exam Mode"}
-              </button>
-
-              {examMode && (
-                <span className="text-[10px] text-cobalt/60">
-                  Exam-focused answers
-                </span>
-              )}
-            </div>
-
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  send(input);
-                }
-              }}
-              placeholder="Ask Nova anything..."
-              rows={1}
-              maxLength={4000}
-              className="max-h-[140px] min-h-[48px] w-full resize-none bg-transparent px-4 pb-12 pt-3.5 pr-14 text-sm leading-6 text-ink outline-none placeholder:text-ink/35"
-            />
-
-            <div className="absolute bottom-2 left-3 right-3 flex items-center justify-between">
-              <span className="text-[10px] text-ink/30">
-                {input.length > 0 ? `${input.length}/4000` : "Enter to send"}
-              </span>
-
-              <button
-                type="submit"
-                disabled={sending || !input.trim()}
-                className="nova-send flex h-9 w-9 items-center justify-center rounded-xl bg-cobalt text-white shadow-lg transition-all hover:scale-105 hover:bg-cobalt/90 disabled:cursor-not-allowed disabled:opacity-30"
-                title={sending ? "Nova is thinking" : "Send message"}
-              >
-                {sending ? (
-                  <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                ) : (
-                  <Send className="h-3.5 w-3.5" strokeWidth={2} />
-                )}
-              </button>
-            </div>
-          </form>
-
-          <p className="mt-2 text-center text-[9px] text-ink/25">
-            Nova can make mistakes. Verify important answers.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
-
-
-
-
+                    {/* FOLLOW UPS */}
+                    {!isUser &&
+                      index === messages.length - 1 &&
+                      !sending && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {FOLLOW_UP_ACTIONS.map(
+                            (action) => (
+                       
