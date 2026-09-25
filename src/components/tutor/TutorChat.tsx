@@ -712,10 +712,10 @@ export function TutorChat({
 
       {/* HEADER */}
 
-      <header className="flex shrink-0 items-center justify-between border-b border-line/60 bg-paper/95 px-4 py-3 backdrop-blur-xl sm:px-6">
+      <header className="flex shrink-0 items-center justify-between border-b border-line/60 bg-paper px-4 py-3 sm:px-6">
         <div className="flex items-center gap-3">
 
-          <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-cobalt/10 ring-1 ring-cobalt/15">
+          <div className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-cobalt/20 bg-cobalt/10">
             <Sparkles className="h-4 w-4 text-cobalt" />
 
             <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-paper bg-emerald-500" />
@@ -738,7 +738,7 @@ export function TutorChat({
           </div>
         </div>
 
-        <div className="hidden items-center gap-1.5 rounded-full border border-line/70 bg-white/50 px-3 py-1.5 text-[11px] font-medium text-ink sm:flex">
+        <div className="hidden items-center gap-1.5 rounded-full border border-line/70 bg-ink/5 px-3 py-1.5 text-[11px] font-medium text-ink sm:flex">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
           Ready
         </div>
@@ -760,7 +760,7 @@ export function TutorChat({
               <div className="relative mb-7">
                 <div className="absolute inset-0 scale-150 rounded-full bg-cobalt/10 blur-3xl" />
 
-                <div className="relative flex h-20 w-20 items-center justify-center rounded-[24px] border border-cobalt/15 bg-cobalt/5 shadow-lg shadow-cobalt/10">
+                <div className="relative flex h-20 w-20 items-center justify-center rounded-[24px] border border-cobalt/15 bg-cobalt/10">
                   <Sparkles className="h-8 w-8 text-cobalt" />
                 </div>
               </div>
@@ -789,7 +789,7 @@ export function TutorChat({
                             action.label,
                           )
                         }
-                        className="group flex items-center gap-3 rounded-2xl border border-line/70 bg-white/60 p-3.5 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-cobalt/25 hover:bg-white hover:shadow-md"
+                        className="group flex items-center gap-3 rounded-2xl border border-line/70 bg-ink/5 p-3.5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-cobalt/30 hover:bg-cobalt/5"
                       >
                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cobalt/10 text-cobalt">
                           <Icon className="h-[18px] w-[18px]" />
@@ -809,10 +809,6 @@ export function TutorChat({
                   },
                 )}
               </div>
-
-              <p className="mt-7 text-[11px] text-muted">
-                You can upload a question or speak to Nova.
-              </p>
             </div>
           ) : null}
 
@@ -833,8 +829,9 @@ export function TutorChat({
                         : "flex items-start gap-3"
                     }
                   >
+
                     {!isUser ? (
-                      <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-cobalt/15 bg-cobalt/10">
+                      <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-cobalt/20 bg-cobalt/10">
                         <Sparkles className="h-3.5 w-3.5 text-cobalt" />
                       </div>
                     ) : null}
@@ -847,7 +844,7 @@ export function TutorChat({
                       }
                     >
 
-                      {/* USER IMAGE */}
+                      {/* IMAGES */}
 
                       {isUser &&
                       message.imagePreviews &&
@@ -860,7 +857,7 @@ export function TutorChat({
                             ) => (
                               <div
                                 key={`${message.id}-${imageIndex}`}
-                                className="overflow-hidden rounded-2xl border border-line bg-white shadow-sm"
+                                className="overflow-hidden rounded-2xl border border-line bg-ink/5"
                               >
                                 <img
                                   src={image}
@@ -873,13 +870,13 @@ export function TutorChat({
                         </div>
                       ) : null}
 
-                      {/* MESSAGE */}
+                      {/* MESSAGE BUBBLE */}
 
                       <div
                         className={
                           isUser
-                            ? "rounded-[22px] rounded-br-md bg-cobalt px-4 py-3 text-white shadow-md shadow-cobalt/15"
-                            : "rounded-[22px] rounded-bl-md border border-line/60 bg-white px-5 py-4 text-ink shadow-sm"
+                            ? "rounded-[22px] rounded-br-md bg-cobalt px-4 py-3 text-white shadow-md shadow-cobalt/20"
+                            : "rounded-[22px] rounded-bl-md border border-line/70 bg-ink/5 px-5 py-4 text-ink shadow-sm"
                         }
                       >
                         {isUser ? (
@@ -887,7 +884,7 @@ export function TutorChat({
                             {message.content}
                           </p>
                         ) : (
-                          <div className="prose prose-sm max-w-none prose-headings:font-semibold prose-headings:text-ink prose-p:text-ink prose-p:leading-7 prose-li:text-ink prose-strong:text-ink prose-code:bg-cobalt/5 prose-code:text-cobalt">
+                          <div className="prose prose-sm max-w-none prose-headings:text-ink prose-p:text-ink prose-p:leading-7 prose-li:text-ink prose-strong:text-ink prose-code:rounded prose-code:bg-cobalt/10 prose-code:px-1 prose-code:text-cobalt">
                             <ReactMarkdown
                               remarkPlugins={[
                                 remarkGfm,
@@ -917,7 +914,7 @@ export function TutorChat({
                                 message.content,
                               )
                             }
-                            className="flex h-8 items-center gap-1.5 rounded-lg px-2 text-[11px] font-medium text-muted transition hover:bg-white hover:text-ink"
+                            className="flex h-8 items-center gap-1.5 rounded-lg px-2 text-[11px] font-medium text-muted transition hover:bg-ink/5 hover:text-ink"
                           >
                             {copiedId ===
                             message.id ? (
@@ -941,7 +938,7 @@ export function TutorChat({
                               )
                             }
                             disabled={sending}
-                            className="flex h-8 items-center gap-1.5 rounded-lg px-2 text-[11px] font-medium text-muted transition hover:bg-white hover:text-ink disabled:opacity-40"
+                            className="flex h-8 items-center gap-1.5 rounded-lg px-2 text-[11px] font-medium text-muted transition hover:bg-ink/5 hover:text-ink disabled:opacity-40"
                           >
                             <RotateCcw className="h-3.5 w-3.5" />
                             <span>Regenerate</span>
@@ -966,7 +963,7 @@ export function TutorChat({
                                     action,
                                   )
                                 }
-                                className="rounded-full border border-line/70 bg-white px-3.5 py-2 text-xs font-medium text-ink shadow-sm transition hover:border-cobalt/25 hover:bg-cobalt/5 hover:text-cobalt"
+                                className="rounded-full border border-line/70 bg-ink/5 px-3.5 py-2 text-xs font-medium text-ink shadow-sm transition hover:border-cobalt/30 hover:bg-cobalt/10 hover:text-cobalt"
                               >
                                 {action}
                               </button>
@@ -988,13 +985,11 @@ export function TutorChat({
                 .role === "user") ? (
               <div className="flex items-start gap-3">
 
-                <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-cobalt/15 bg-cobalt/10">
+                <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-cobalt/20 bg-cobalt/10">
                   <Sparkles className="h-3.5 w-3.5 animate-pulse text-cobalt" />
                 </div>
 
-                <div className="flex items-center gap-3 rounded-[22px] rounded-bl-md border border-line/60 bg-white px-4 py-3.5 shadow-sm">
-
-                  {/* DARK TEXT — NOT WHITE */}
+                <div className="flex items-center gap-3 rounded-[22px] rounded-bl-md border border-line/70 bg-ink/5 px-4 py-3.5 shadow-sm">
 
                   <span className="text-sm font-medium text-ink">
                     Nova is thinking
@@ -1002,21 +997,21 @@ export function TutorChat({
 
                   <span className="flex items-center gap-1">
                     <span
-                      className="h-1.5 w-1.5 animate-bounce rounded-full bg-cobalt/60"
+                      className="h-1.5 w-1.5 animate-bounce rounded-full bg-cobalt/70"
                       style={{
                         animationDelay: "0ms",
                       }}
                     />
 
                     <span
-                      className="h-1.5 w-1.5 animate-bounce rounded-full bg-cobalt/60"
+                      className="h-1.5 w-1.5 animate-bounce rounded-full bg-cobalt/70"
                       style={{
                         animationDelay: "150ms",
                       }}
                     />
 
                     <span
-                      className="h-1.5 w-1.5 animate-bounce rounded-full bg-cobalt/60"
+                      className="h-1.5 w-1.5 animate-bounce rounded-full bg-cobalt/70"
                       style={{
                         animationDelay: "300ms",
                       }}
@@ -1033,7 +1028,7 @@ export function TutorChat({
 
       {error ? (
         <div className="mx-auto w-full max-w-4xl px-4 sm:px-6">
-          <div className="mb-2 flex items-start justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">
+          <div className="mb-2 flex items-start justify-between gap-3 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300 shadow-sm">
             <div className="flex min-w-0 items-start gap-2">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
 
@@ -1051,7 +1046,7 @@ export function TutorChat({
                     error.retryImages,
                   )
                 }
-                className="shrink-0 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100"
+                className="shrink-0 rounded-lg border border-red-500/20 bg-ink/10 px-3 py-1.5 text-xs font-semibold text-red-300 transition hover:bg-red-500/10"
               >
                 Retry
               </button>
@@ -1062,7 +1057,7 @@ export function TutorChat({
 
       {/* COMPOSER */}
 
-      <div className="shrink-0 border-t border-line/60 bg-paper/95 px-3 py-3 backdrop-blur-xl sm:px-6 sm:py-4">
+      <div className="shrink-0 border-t border-line/60 bg-paper px-3 py-3 sm:px-6 sm:py-4">
         <div className="mx-auto w-full max-w-4xl">
 
           {/* SELECTED IMAGES */}
@@ -1075,7 +1070,7 @@ export function TutorChat({
                     key={`${image.file.name}-${index}`}
                     className="group relative"
                   >
-                    <div className="overflow-hidden rounded-xl border border-line bg-white shadow-sm">
+                    <div className="overflow-hidden rounded-xl border border-line bg-ink/5 shadow-sm">
                       <img
                         src={image.preview}
                         alt={`Selected ${index + 1}`}
@@ -1099,12 +1094,14 @@ export function TutorChat({
             </div>
           ) : null}
 
+          {/* COMPOSER */}
+
           <form
             onSubmit={submitForm}
-            className="flex items-end gap-1.5 rounded-[24px] border border-line/80 bg-white p-1.5 shadow-lg shadow-black/[0.04] transition-all focus-within:border-cobalt/30 focus-within:shadow-xl focus-within:shadow-cobalt/[0.05]"
+            className="flex items-end gap-1.5 rounded-[24px] border border-line/80 bg-ink/5 p-1.5 shadow-lg shadow-black/10 transition-all focus-within:border-cobalt/40 focus-within:bg-ink/10"
           >
 
-            {/* ATTACH */}
+            {/* ATTACHMENT */}
 
             <div className="relative">
               <button
@@ -1114,28 +1111,28 @@ export function TutorChat({
                     (current) => !current,
                   )
                 }
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] text-muted transition hover:bg-line/40 hover:text-ink"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] text-muted transition hover:bg-ink/10 hover:text-ink"
                 title="Attach"
               >
                 <Paperclip className="h-[18px] w-[18px]" />
               </button>
 
               {showAttachMenu ? (
-                <div className="absolute bottom-12 left-0 z-20 w-52 overflow-hidden rounded-2xl border border-line/70 bg-white p-1.5 shadow-xl shadow-black/10">
+                <div className="absolute bottom-12 left-0 z-20 w-52 overflow-hidden rounded-2xl border border-line bg-paper p-1.5 shadow-xl shadow-black/30">
 
                   <button
                     type="button"
                     onClick={() =>
                       galleryInputRef.current?.click()
                     }
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-ink transition hover:bg-cobalt/5"
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-ink transition hover:bg-cobalt/10"
                   >
                     <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-cobalt/10 text-cobalt">
                       <ImageIcon className="h-4 w-4" />
                     </span>
 
                     <span>
-                      <span className="block font-medium">
+                      <span className="block font-medium text-ink">
                         Photo library
                       </span>
 
@@ -1150,14 +1147,14 @@ export function TutorChat({
                     onClick={() =>
                       cameraInputRef.current?.click()
                     }
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-ink transition hover:bg-cobalt/5"
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-ink transition hover:bg-cobalt/10"
                   >
                     <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-cobalt/10 text-cobalt">
                       <Camera className="h-4 w-4" />
                     </span>
 
                     <span>
-                      <span className="block font-medium">
+                      <span className="block font-medium text-ink">
                         Take photo
                       </span>
 
@@ -1172,14 +1169,14 @@ export function TutorChat({
                     onClick={() =>
                       fileInputRef.current?.click()
                     }
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-ink transition hover:bg-cobalt/5"
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-ink transition hover:bg-cobalt/10"
                   >
                     <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-cobalt/10 text-cobalt">
                       <Paperclip className="h-4 w-4" />
                     </span>
 
                     <span>
-                      <span className="block font-medium">
+                      <span className="block font-medium text-ink">
                         Upload image
                       </span>
 
@@ -1234,7 +1231,7 @@ export function TutorChat({
               }}
             />
 
-            {/* INPUT */}
+            {/* TEXT INPUT */}
 
             <textarea
               ref={inputRef}
@@ -1260,7 +1257,7 @@ export function TutorChat({
               className="max-h-[140px] min-h-[40px] flex-1 resize-none bg-transparent px-1 py-2 text-sm leading-6 text-ink outline-none placeholder:text-muted"
             />
 
-            {/* EXAM */}
+            {/* EXAM MODE */}
 
             <button
               type="button"
@@ -1272,7 +1269,7 @@ export function TutorChat({
               className={
                 examMode
                   ? "hidden h-9 shrink-0 items-center justify-center rounded-xl bg-cobalt/10 px-3 text-xs font-semibold text-cobalt sm:flex"
-                  : "hidden h-9 shrink-0 items-center justify-center rounded-xl px-3 text-xs font-medium text-muted transition hover:bg-line/30 hover:text-ink sm:flex"
+                  : "hidden h-9 shrink-0 items-center justify-center rounded-xl px-3 text-xs font-medium text-muted transition hover:bg-ink/10 hover:text-ink sm:flex"
               }
               title="Toggle exam mode"
             >
@@ -1286,8 +1283,8 @@ export function TutorChat({
               onClick={toggleVoice}
               className={
                 listening
-                  ? "flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] bg-red-50 text-red-600"
-                  : "flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] text-muted transition hover:bg-line/40 hover:text-ink"
+                  ? "flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] bg-red-500/10 text-red-400"
+                  : "flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] text-muted transition hover:bg-ink/10 hover:text-ink"
               }
               title={
                 listening
