@@ -411,7 +411,9 @@ export function TutorChat({ currentTopicId }: { currentTopicId?: string }) {
                         remarkPlugins={[remarkGfm, remarkMath]}
                         rehypePlugins={[rehypeKatex]}
                       >
-                        {normalizeTutorMarkdown(m.content)}
+                        {messages[messages.length - 1]?.id === m.id && sending
+                        ? m.content
+                        : normalizeTutorMarkdown(m.content)}}
                       </ReactMarkdown>
                     </div>
 
