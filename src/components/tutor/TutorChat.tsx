@@ -363,7 +363,7 @@ export function TutorChat({
 
       recognition.lang = "en-IN";
       recognition.continuous = false;
-      recognition.interimResults = true;
+      recognition.interimResults = false;
 
       recognition.onstart = () => {
         setListening(true);
@@ -443,33 +443,6 @@ export function TutorChat({
       }
     }
 
-    if (navigator.mediaDevices?.getUserMedia) {
-      navigator.mediaDevices
-        .getUserMedia({ audio: true })
-        .then((stream) => {
-          stream.getTracks().forEach((track) =>
-            track.stop(),
-          );
-
-          startRecognition();
-        })
-        .catch((err: any) => {
-          const name = err?.name as string | undefined;
-
-          setError({
-            text:
-              name === "NotAllowedError" ||
-              name === "PermissionDeniedError"
-                ? "Microphone access was denied. Allow microphone permission and try again."
-                : name === "NotFoundError"
-                  ? "No microphone was found on this device."
-                  : "Couldn't access the microphone on this device.",
-            retryMessage: "",
-          });
-        });
-
-      return;
-    }
 
     startRecognition();
   }
